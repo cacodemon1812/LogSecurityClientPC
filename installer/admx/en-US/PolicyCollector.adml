@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<policyDefinitionResources xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions"
+                            revision="1.0" schemaVersion="1.0">
+  <displayName>PolicyCollector</displayName>
+  <description>Settings for the PolicyCollector agent service</description>
+  <resources>
+    <stringTable>
+      <string id="CategoryName">PolicyCollector</string>
+
+      <string id="BackendUrl">Backend Collection URL</string>
+      <string id="BackendUrl_Explain">
+        The HTTPS URL of the PolicyCollector backend ingest endpoint.
+        Example: https://collector.corp.local/api/v1/ingest
+        If not configured, the agent will use the value from appsettings.json.
+      </string>
+
+      <string id="IntervalMinutes">Collection Interval (minutes)</string>
+      <string id="IntervalMinutes_Explain">
+        How often the agent collects and sends data, in minutes.
+        Minimum: 15. Maximum: 1440 (24 hours). Default: 60.
+      </string>
+
+      <string id="EnableGPO">Enable GPO Collection Module</string>
+      <string id="EnableGPO_Explain">
+        When enabled, the agent collects Group Policy Object information using gpresult.exe.
+      </string>
+
+      <string id="EnableSecurityPolicy">Enable Security Policy Collection Module</string>
+      <string id="EnableSecurityPolicy_Explain">
+        When enabled, the agent collects security policy information including password policy, audit policy, and UAC settings.
+      </string>
+
+      <string id="EnableFirewall">Enable Firewall Collection Module</string>
+      <string id="EnableFirewall_Explain">
+        When enabled, the agent collects Windows Firewall profiles and rules.
+      </string>
+
+      <string id="EnableDefender">Enable Defender Collection Module</string>
+      <string id="EnableDefender_Explain">
+        When enabled, the agent collects Windows Defender status and configuration.
+      </string>
+
+      <string id="EnableBitLocker">Enable BitLocker Collection Module</string>
+      <string id="EnableBitLocker_Explain">
+        When enabled, the agent collects BitLocker volume encryption status.
+      </string>
+
+      <string id="EnableAppInventory">Enable Application Inventory Collection Module</string>
+      <string id="EnableAppInventory_Explain">
+        When enabled, the agent collects installed applications from the Windows registry.
+      </string>
+
+      <string id="EnableServices">Enable Services Collection Module</string>
+      <string id="EnableServices_Explain">
+        When enabled, the agent collects Windows service configuration and status.
+      </string>
+
+      <string id="EnableScheduledTasks">Enable Scheduled Tasks Collection Module</string>
+      <string id="EnableScheduledTasks_Explain">
+        When enabled, the agent collects scheduled tasks configuration.
+      </string>
+
+      <string id="EnableStartupEntries">Enable Startup Entries Collection Module</string>
+      <string id="EnableStartupEntries_Explain">
+        When enabled, the agent collects registry startup entries.
+      </string>
+    </stringTable>
+  </resources>
+</policyDefinitionResources>

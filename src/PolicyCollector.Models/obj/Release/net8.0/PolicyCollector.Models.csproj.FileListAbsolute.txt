@@ -1,0 +1,12 @@
+D:\3.Code\LogSecurityClientPC\src\PolicyCollector.Models\bin\Release\net8.0\PolicyCollector.Models.deps.json
+D:\3.Code\LogSecurityClientPC\src\PolicyCollector.Models\bin\Release\net8.0\PolicyCollector.Models.dll
+D:\3.Code\LogSecurityClientPC\src\PolicyCollector.Models\bin\Release\net8.0\PolicyCollector.Models.pdb
+D:\3.Code\LogSecurityClientPC\src\PolicyCollector.Models\obj\Release\net8.0\PolicyCollector.Models.GeneratedMSBuildEditorConfig.editorconfig
+D:\3.Code\LogSecurityClientPC\src\PolicyCollector.Models\obj\Release\net8.0\PolicyCollector.Models.AssemblyInfoInputs.cache
+D:\3.Code\LogSecurityClientPC\src\PolicyCollector.Models\obj\Release\net8.0\PolicyCollector.Models.AssemblyInfo.cs
+D:\3.Code\LogSecurityClientPC\src\PolicyCollector.Models\obj\Release\net8.0\PolicyCollector.Models.csproj.CoreCompileInputs.cache
+D:\3.Code\LogSecurityClientPC\src\PolicyCollector.Models\obj\Release\net8.0\PolicyCollector.Models.sourcelink.json
+D:\3.Code\LogSecurityClientPC\src\PolicyCollector.Models\obj\Release\net8.0\PolicyCollector.Models.dll
+D:\3.Code\LogSecurityClientPC\src\PolicyCollector.Models\obj\Release\net8.0\refint\PolicyCollector.Models.dll
+D:\3.Code\LogSecurityClientPC\src\PolicyCollector.Models\obj\Release\net8.0\PolicyCollector.Models.pdb
+D:\3.Code\LogSecurityClientPC\src\PolicyCollector.Models\obj\Release\net8.0\ref\PolicyCollector.Models.dll

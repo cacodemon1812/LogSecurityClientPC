@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: policycollector-alert-worker
+  namespace: policycollector
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: alert-worker
+  template:
+    metadata:
+      labels:
+        app: alert-worker
+    spec:
+      containers:
+        - name: alert-worker
+          image: your-registry/policycollector-backend:1.0.0
+          env:
+            - name: WORKER_TYPE
+              value: "alert"
+            - name: ConnectionStrings__Postgres
+              valueFrom:
+                secretKeyRef:
+                  name: pc-secrets
+                  key: postgres-connection-string
+            - name: ConnectionStrings__Redis
+              valueFrom:
+                secretKeyRef:
+                  name: pc-secrets
+                  key: redis-connection-string
+            - name: Backend__AlertWebhookUrl
+              valueFrom:
+                configMapKeyRef:
+                  name: pc-config
+                  key: alert-webhook-url
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

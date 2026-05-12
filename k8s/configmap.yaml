@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pc-config
+  namespace: policycollector
+data:
+  alert-webhook-url: "http://alertmanager:9093/api/v1/alerts"

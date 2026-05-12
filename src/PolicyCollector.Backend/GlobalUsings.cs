@@ -1,0 +1,11 @@
+global using System.Text.Json;
+global using Microsoft.AspNetCore.Mvc;
+global using Microsoft.Extensions.Caching.Memory;
+global using Microsoft.Extensions.Options;
+global using PolicyCollector.Agent.Models;
+global using PolicyCollector.Backend.Config;
+global using PolicyCollector.Backend.Data.Models;
+global using PolicyCollector.Backend.Infrastructure;
+global using PolicyCollector.Backend.Data.Repositories;
+global using PolicyCollector.Backend.Api.Models;
+global using PolicyCollector.Backend.Services;

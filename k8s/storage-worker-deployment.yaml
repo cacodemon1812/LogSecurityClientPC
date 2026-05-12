@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: policycollector-storage-worker
+  namespace: policycollector
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: storage-worker
+  template:
+    metadata:
+      labels:
+        app: storage-worker
+    spec:
+      containers:
+        - name: storage-worker
+          image: your-registry/policycollector-backend:1.0.0
+          env:
+            - name: WORKER_TYPE
+              value: "storage"
+            - name: ConnectionStrings__Postgres
+              valueFrom:
+                secretKeyRef:
+                  name: pc-secrets
+                  key: postgres-connection-string
+            - name: ConnectionStrings__Redis
+              valueFrom:
+                secretKeyRef:
+                  name: pc-secrets
+                  key: redis-connection-string
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi

@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<policyDefinitions xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions"
+                   revision="1.0" schemaVersion="1.0">
+
+  <policyNamespaces>
+    <target prefix="policycollector" namespace="PolicyCollector.Policies" />
+  </policyNamespaces>
+
+  <resources minRequiredRevision="1.0" />
+
+  <categories>
+    <category name="PolicyCollector" displayName="$(string.CategoryName)" />
+  </categories>
+
+  <policies>
+
+    <!-- Backend URL -->
+    <policy name="BackendUrl"
+            class="Machine"
+            displayName="$(string.BackendUrl)"
+            explainText="$(string.BackendUrl_Explain)"
+            key="SOFTWARE\Policies\PolicyCollector"
+            valueName="BackendUrl">
+      <parentCategory ref="PolicyCollector" />
+      <supportedOn ref="windows:SUPPORTED_Windows10" />
+      <elements>
+        <text id="BackendUrl_Value" valueName="BackendUrl" required="false" />
+      </elements>
+    </policy>
+
+    <!-- Collection Interval -->
+    <policy name="IntervalMinutes"
+            class="Machine"
+            displayName="$(string.IntervalMinutes)"
+            explainText="$(string.IntervalMinutes_Explain)"
+            key="SOFTWARE\Policies\PolicyCollector"
+            valueName="IntervalMinutes">
+      <parentCategory ref="PolicyCollector" />
+      <supportedOn ref="windows:SUPPORTED_Windows10" />
+      <elements>
+        <decimal id="Interval_Value" valueName="IntervalMinutes"
+                 minValue="15" maxValue="1440" />
+      </elements>
+    </policy>
+
+    <!-- Enable GPO Collection -->
+    <policy name="EnableGPO"
+            class="Machine"
+            displayName="$(string.EnableGPO)"
+            explainText="$(string.EnableGPO_Explain)"
+            key="SOFTWARE\Policies\PolicyCollector\Modules"
+            valueName="GPO">
+      <parentCategory ref="PolicyCollector" />
+      <supportedOn ref="windows:SUPPORTED_Windows10" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+
+    <!-- Enable SecurityPolicy Collection -->
+    <policy name="EnableSecurityPolicy"
+            class="Machine"
+            displayName="$(string.EnableSecurityPolicy)"
+            explainText="$(string.EnableSecurityPolicy_Explain)"
+            key="SOFTWARE\Policies\PolicyCollector\Modules"
+            valueName="SecurityPolicy">
+      <parentCategory ref="PolicyCollector" />
+      <supportedOn ref="windows:SUPPORTED_Windows10" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+
+    <!-- Enable Firewall Collection -->
+    <policy name="EnableFirewall"
+            class="Machine"
+            displayName="$(string.EnableFirewall)"
+            explainText="$(string.EnableFirewall_Explain)"
+            key="SOFTWARE\Policies\PolicyCollector\Modules"
+            valueName="Firewall">
+      <parentCategory ref="PolicyCollector" />
+      <supportedOn ref="windows:SUPPORTED_Windows10" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+
+    <!-- Enable Defender Collection -->
+    <policy name="EnableDefender"
+            class="Machine"
+            displayName="$(string.EnableDefender)"
+            explainText="$(string.EnableDefender_Explain)"
+            key="SOFTWARE\Policies\PolicyCollector\Modules"
+            valueName="Defender">
+      <parentCategory ref="PolicyCollector" />
+      <supportedOn ref="windows:SUPPORTED_Windows10" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+
+    <!-- Enable BitLocker Collection -->
+    <policy name="EnableBitLocker"
+            class="Machine"
+            displayName="$(string.EnableBitLocker)"
+            explainText="$(string.EnableBitLocker_Explain)"
+            key="SOFTWARE\Policies\PolicyCollector\Modules"
+            valueName="BitLocker">
+      <parentCategory ref="PolicyCollector" />
+      <supportedOn ref="windows:SUPPORTED_Windows10" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+
+    <!-- Enable AppInventory Collection -->
+    <policy name="EnableAppInventory"
+            class="Machine"
+            displayName="$(string.EnableAppInventory)"
+            explainText="$(string.EnableAppInventory_Explain)"
+            key="SOFTWARE\Policies\PolicyCollector\Modules"
+            valueName="AppInventory">
+      <parentCategory ref="PolicyCollector" />
+      <supportedOn ref="windows:SUPPORTED_Windows10" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+
+    <!-- Enable Services Collection -->
+    <policy name="EnableServices"
+            class="Machine"
+            displayName="$(string.EnableServices)"
+            explainText="$(string.EnableServices_Explain)"
+            key="SOFTWARE\Policies\PolicyCollector\Modules"
+            valueName="Services">
+      <parentCategory ref="PolicyCollector" />
+      <supportedOn ref="windows:SUPPORTED_Windows10" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+
+    <!-- Enable ScheduledTasks Collection -->
+    <policy name="EnableScheduledTasks"
+            class="Machine"
+            displayName="$(string.EnableScheduledTasks)"
+            explainText="$(string.EnableScheduledTasks_Explain)"
+            key="SOFTWARE\Policies\PolicyCollector\Modules"
+            valueName="ScheduledTasks">
+      <parentCategory ref="PolicyCollector" />
+      <supportedOn ref="windows:SUPPORTED_Windows10" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+
+    <!-- Enable StartupEntries Collection -->
+    <policy name="EnableStartupEntries"
+            class="Machine"
+            displayName="$(string.EnableStartupEntries)"
+            explainText="$(string.EnableStartupEntries_Explain)"
+            key="SOFTWARE\Policies\PolicyCollector\Modules"
+            valueName="StartupEntries">
+      <parentCategory ref="PolicyCollector" />
+      <supportedOn ref="windows:SUPPORTED_Windows10" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+
+  </policies>
+</policyDefinitions>

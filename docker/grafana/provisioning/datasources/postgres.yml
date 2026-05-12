@@ -1,0 +1,16 @@
+apiVersion: 1
+
+datasources:
+  - name: PolicyCollector-PG
+    type: postgres
+    url: postgres:5432
+    database: policycollector
+    user: pcollector
+    secureJsonData:
+      password: ${POSTGRES_PASSWORD:-devpassword}
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: true
+    isDefault: true
+    editable: true

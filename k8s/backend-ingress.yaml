@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: policycollector-ingress
+  namespace: policycollector
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: policycollector.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: policycollector-backend
+                port:
+                  number: 80

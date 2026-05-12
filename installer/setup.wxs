@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <Package Name="PolicyCollector"
+           Manufacturer="PolicyCollector"
+           Version="$(var.Version)"
+           UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
+           Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+
+    <Property Id="BACKEND_URL" Value="" />
+    <Property Id="API_KEY" Secure="yes" />
+    <Property Id="HMAC_SECRET" Secure="yes" />
+    <Property Id="INTERVAL_MIN" Value="60" />
+
+    <Launch Condition="VersionNT &gt;= 1810"
+            Message="This application requires Windows 10 1809 or later." />
+
+    <Launch Condition="VersionNT64"
+            Message="This application requires a 64-bit version of Windows." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="ProductFeature" Title="PolicyCollector" Level="1">
+      <ComponentGroupRef Id="AgentFiles" />
+      <ComponentGroupRef Id="ConfigFiles" />
+      <ComponentRef Id="ServiceComponent" />
+    </Feature>
+
+    <!-- Custom Actions -->
+    <Binary Id="CustomActionCA"
+            SourceFile="$(var.CustomActionBin)\PolicyCollector.CA.dll" />
+
+    <CustomAction Id="SaveCredentials"
+                  BinaryRef="CustomActionCA"
+                  DllEntry="SaveCredentials"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check">
+      <CustomActionData>
+        API_KEY=[API_KEY];HMAC_SECRET=[HMAC_SECRET];BACKEND_URL=[BACKEND_URL]
+      </CustomActionData>
+    </CustomAction>
+
+    <CustomAction Id="WriteConfig"
+                  BinaryRef="CustomActionCA"
+                  DllEntry="WriteAgentConfig"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check">
+      <CustomActionData>
+        BACKEND_URL=[BACKEND_URL];INTERVAL_MIN=[INTERVAL_MIN]
+      </CustomActionData>
+    </CustomAction>
+
+    <CustomAction Id="InstallService"
+                  BinaryRef="CustomActionCA"
+                  DllEntry="InstallService"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check">
+      <CustomActionData>
+        INSTALLDIR=[INSTALLDIR]
+      </CustomActionData>
+    </CustomAction>
+
+    <CustomAction Id="UninstallService"
+                  BinaryRef="CustomActionCA"
+                  DllEntry="UninstallService"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="WriteConfig" Before="InstallFinalize">NOT Installed</Custom>
+      <Custom Action="SaveCredentials" After="WriteConfig">NOT Installed AND API_KEY</Custom>
+      <Custom Action="InstallService" After="SaveCredentials">NOT Installed</Custom>
+      <Custom Action="UninstallService" Before="RemoveFiles">REMOVE="ALL"</Custom>
+    </InstallExecuteSequence>
+  </Package>
+
+  <!-- Directories -->
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLDIR" Name="PolicyCollector" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="DATAROOTDIR" Name="PolicyCollector">
+        <Directory Id="LOGDIR" Name="logs" />
+      </Directory>
+    </StandardDirectory>
+  </Fragment>
+
+  <!-- Files -->
+  <Fragment>
+    <ComponentGroup Id="AgentFiles" Directory="INSTALLDIR">
+      <Component Id="AgentExe" Guid="$(var.AgentExeGuid)">
+        <File Id="AgentExeFile"
+              Source="$(var.AgentBin)\PolicyCollector.Agent.exe"
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="ConfigFiles" Directory="DATAROOTDIR">
+      <Component Id="AppSettings" Guid="$(var.ConfigGuid)">
+        <File Id="AppSettingsFile"
+              Source="$(var.SourceDir)\appsettings.json"
+              NeverOverwrite="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- ACL -->
+  <Fragment>
+    <Component Id="InstallDirAcl" Directory="INSTALLDIR" Guid="$(var.InstallAclGuid)">
+      <util:PermissionEx User="Administrators" GenericAll="yes" />
+      <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+      <util:PermissionEx User="Users" GenericRead="yes" GenericExecute="yes" />
+    </Component>
+
+    <Component Id="DataDirAcl" Directory="DATAROOTDIR" Guid="$(var.DataAclGuid)">
+      <util:PermissionEx User="Administrators" GenericAll="yes" />
+      <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+    </Component>
+  </Fragment>
+
+  <!-- Service Component -->
+  <Fragment>
+    <Component Id="ServiceComponent" Directory="INSTALLDIR" Guid="$(var.ServiceGuid)">
+      <RegistryValue Root="HKLM"
+                     Key="SOFTWARE\PolicyCollector"
+                     Name="InstalledVersion"
+                     Type="string"
+                     Value="$(var.Version)"
+                     KeyPath="yes" />
+    </Component>
+  </Fragment>
+
+</Wix>

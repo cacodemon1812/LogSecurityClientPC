@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>PolicyCollector.Agent</AssemblyName>
+    <RootNamespace>PolicyCollector.Agent</RootNamespace>
+    <Version>0.1.0</Version>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWindowsForms>false</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../PolicyCollector.Models/PolicyCollector.Models.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.*" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.*" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="8.*" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.*" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="8.*" />
+    <PackageReference Include="Serilog.Sinks.File" Version="5.*" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="8.*" />
+    <PackageReference Include="System.Management.Automation" Version="7.4.*" />
+    <PackageReference Include="System.Management" Version="8.*" />
+  </ItemGroup>
+</Project>

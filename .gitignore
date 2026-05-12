@@ -2,3 +2,4 @@
 /src/PolicyCollector.Agent/obj
 /tests/PolicyCollector.Agent.Tests/bin
 /tests/PolicyCollector.Agent.Tests/obj
+/src/PolicyCollector.Models/bin

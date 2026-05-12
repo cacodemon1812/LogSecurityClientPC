@@ -1,0 +1,4 @@
+/src/PolicyCollector.Agent/bin
+/src/PolicyCollector.Agent/obj
+/tests/PolicyCollector.Agent.Tests/bin
+/tests/PolicyCollector.Agent.Tests/obj

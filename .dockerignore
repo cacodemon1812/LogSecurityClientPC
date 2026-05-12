@@ -1,0 +1,13 @@
+**/.git
+**/.gitignore
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/dist
+**/TestResults
+**/*.user
+**/node_modules
+docker/grafana/dashboards/*.json
+*.md
+.dockerignore

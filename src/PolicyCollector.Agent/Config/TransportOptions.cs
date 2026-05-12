@@ -3,6 +3,7 @@ namespace PolicyCollector.Agent.Config;
 public sealed class TransportOptions
 {
     public string BackendUrl { get; init; } = string.Empty;
+    public string ApiKey { get; init; } = string.Empty;
     public int TimeoutSeconds { get; init; } = 30;
     public int MaxRetries { get; init; } = 5;
     public int InitialRetryDelaySeconds { get; init; } = 10;

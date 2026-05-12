@@ -13,6 +13,8 @@ public sealed class LocalQueue : IDisposable
     private readonly ILogger<LocalQueue> _logger;
     private SqliteConnection? _connection;
     private readonly object _syncLock = new();
+    private bool _initialized;
+    private bool _initFailed;
 
     public LocalQueue(IOptions<LocalQueueOptions> options, ILogger<LocalQueue> logger)
     {
@@ -21,29 +23,45 @@ public sealed class LocalQueue : IDisposable
             "PolicyCollector", "queue.db");
         _options = options.Value;
         _logger = logger;
-        EnsureInitialized();
+        // Defer initialization to first use (lazy loading)
     }
 
     private void EnsureInitialized()
     {
+        if (_initialized || _initFailed)
+            return;
+
         lock (_syncLock)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_dbPath)!);
-            _connection = new SqliteConnection($"Data Source={_dbPath};Mode=ReadWrite;Create=True");
-            _connection.Open();
+            if (_initialized || _initFailed)
+                return;
 
-            _connection.Execute("PRAGMA journal_mode=WAL;");
-            _connection.Execute("PRAGMA synchronous=NORMAL;");
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_dbPath)!);
+                _connection = new SqliteConnection($"Data Source={_dbPath};Mode=ReadWriteCreate");
+                _connection.Open();
 
-            _connection.Execute("""
-                CREATE TABLE IF NOT EXISTS outbox (
-                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                    payload     TEXT NOT NULL,
-                    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-                    retry_count INTEGER NOT NULL DEFAULT 0,
-                    last_error  TEXT
-                )
-                """);
+                _connection.Execute("PRAGMA journal_mode=WAL;");
+                _connection.Execute("PRAGMA synchronous=NORMAL;");
+
+                _connection.Execute("""
+                    CREATE TABLE IF NOT EXISTS outbox (
+                        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                        payload     TEXT NOT NULL,
+                        created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+                        retry_count INTEGER NOT NULL DEFAULT 0,
+                        last_error  TEXT
+                    )
+                    """);
+                _initialized = true;
+                _logger.LogInformation("LocalQueue initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to initialize LocalQueue. Queue functionality will be unavailable.");
+                _initFailed = true;
+            }
         }
     }
 
@@ -51,20 +69,27 @@ public sealed class LocalQueue : IDisposable
     {
         lock (_syncLock)
         {
+            EnsureInitialized();
+            if (_initFailed || _connection is null)
+            {
+                _logger.LogWarning("LocalQueue not available, skipping enqueue");
+                return;
+            }
+
             try
             {
                 var json = JsonSerializer.Serialize(payload);
 
-                var count = _connection!.ExecuteScalar<int>("SELECT COUNT(*) FROM outbox");
+                var count = _connection.ExecuteScalar<int>("SELECT COUNT(*) FROM outbox");
                 if (count >= _options.MaxEntries)
                 {
                     var toDrop = count - _options.MaxEntries + 1;
-                    _connection!.Execute(
+                    _connection.Execute(
                         $"DELETE FROM outbox WHERE id IN (SELECT id FROM outbox ORDER BY id ASC LIMIT {toDrop})");
                     _logger.LogWarning("LocalQueue full, dropped {Count} oldest entries", toDrop);
                 }
 
-                _connection!.Execute(
+                _connection.Execute(
                     "INSERT INTO outbox (payload) VALUES (@payload)",
                     new { payload = json });
             }
@@ -80,9 +105,13 @@ public sealed class LocalQueue : IDisposable
     {
         lock (_syncLock)
         {
+            EnsureInitialized();
+            if (_initFailed || _connection is null)
+                return new List<(int, string)>();
+
             try
             {
-                return _connection!
+                return _connection
                     .Query<(int Id, string PayloadJson)>(
                         "SELECT id, payload FROM outbox ORDER BY id ASC LIMIT @batchSize",
                         new { batchSize })
@@ -100,9 +129,13 @@ public sealed class LocalQueue : IDisposable
     {
         lock (_syncLock)
         {
+            EnsureInitialized();
+            if (_initFailed || _connection is null)
+                return;
+
             try
             {
-                _connection!.Execute("DELETE FROM outbox WHERE id = @id", new { id });
+                _connection.Execute("DELETE FROM outbox WHERE id = @id", new { id });
             }
             catch (Exception ex)
             {
@@ -115,9 +148,13 @@ public sealed class LocalQueue : IDisposable
     {
         lock (_syncLock)
         {
+            EnsureInitialized();
+            if (_initFailed || _connection is null)
+                return;
+
             try
             {
-                _connection!.Execute(
+                _connection.Execute(
                     "UPDATE outbox SET retry_count = retry_count + 1, last_error = @error WHERE id = @id",
                     new { id, error });
             }
@@ -132,10 +169,14 @@ public sealed class LocalQueue : IDisposable
     {
         lock (_syncLock)
         {
+            EnsureInitialized();
+            if (_initFailed || _connection is null)
+                return 0;
+
             try
             {
                 var cutoff = DateTime.UtcNow.AddHours(-_options.MaxAgeHours).ToString("yyyy-MM-ddTHH:mm:ssZ");
-                return _connection!.Execute(
+                return _connection.Execute(
                     "DELETE FROM outbox WHERE created_at < @cutoff", new { cutoff });
             }
             catch (Exception ex)
@@ -150,9 +191,13 @@ public sealed class LocalQueue : IDisposable
     {
         lock (_syncLock)
         {
+            EnsureInitialized();
+            if (_initFailed || _connection is null)
+                return 0;
+
             try
             {
-                return _connection!.ExecuteScalar<int>("SELECT COUNT(*) FROM outbox");
+                return _connection.ExecuteScalar<int>("SELECT COUNT(*) FROM outbox");
             }
             catch (Exception ex)
             {

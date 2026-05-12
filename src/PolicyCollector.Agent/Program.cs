@@ -5,6 +5,7 @@ using PolicyCollector.Agent.Jobs;
 using PolicyCollector.Agent.Scheduler;
 using PolicyCollector.Agent.Transport;
 using Serilog;
+using Serilog.Settings.Configuration;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -24,9 +25,13 @@ builder.Services.Configure<TransportOptions>(
 builder.Services.Configure<LocalQueueOptions>(
     builder.Configuration.GetSection("LocalQueue"));
 
-// Serilog
+// Serilog — explicitly pass sink assembly so single-file publish works
+// (single-file disables DependencyContext auto-discovery)
+var serilogOptions = new ConfigurationReaderOptions(
+    typeof(Serilog.FileLoggerConfigurationExtensions).Assembly
+);
 Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(builder.Configuration)
+    .ReadFrom.Configuration(builder.Configuration, serilogOptions)
     .CreateLogger();
 
 builder.Services.AddSerilog();

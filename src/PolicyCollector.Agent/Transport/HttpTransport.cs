@@ -39,7 +39,8 @@ public sealed class HttpTransport : ITransport
                 Content = body
             };
 
-            request.Headers.Add("X-Api-Key", _secrets.GetApiKey() ?? string.Empty);
+            var apiKey = ResolveApiKey();
+            request.Headers.Add("X-Api-Key", apiKey);
             request.Headers.Add("X-Agent-Version", GetAgentVersion());
 
             if (hmac is not null)
@@ -48,9 +49,9 @@ public sealed class HttpTransport : ITransport
             using var response = await _http.SendAsync(request, ct);
             return await HandleResponse(response);
         }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
         {
-            _logger.LogWarning("Transport timeout to {Url}", _options.BackendUrl);
+            _logger.LogWarning(ex, "Transport timeout to {Url}", _options.BackendUrl);
             return TransportResult.NetworkError("Timeout");
         }
         catch (HttpRequestException ex)
@@ -63,6 +64,19 @@ public sealed class HttpTransport : ITransport
             _logger.LogError(ex, "Unexpected error during transport");
             return TransportResult.NetworkError(ex.Message);
         }
+    }
+
+    private string ResolveApiKey()
+    {
+        var secretKey = _secrets.GetApiKey();
+        if (!string.IsNullOrWhiteSpace(secretKey))
+            return secretKey;
+
+        if (!string.IsNullOrWhiteSpace(_options.ApiKey))
+            return _options.ApiKey;
+
+        _logger.LogWarning("No API key configured. Set Windows Credential target 'PolicyCollector/ApiKey' or Transport:ApiKey.");
+        return string.Empty;
     }
 
     private async Task<TransportResult> HandleResponse(HttpResponseMessage response)

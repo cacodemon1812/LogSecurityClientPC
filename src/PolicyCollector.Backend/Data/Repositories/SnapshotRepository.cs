@@ -26,12 +26,12 @@ public sealed class SnapshotRepository
     {
         var json = System.Text.Json.JsonSerializer.Serialize(payload);
 
-        // ON CONFLICT DO NOTHING: if duplicate, fetch existing id instead
+        // TimescaleDB hypertable: unique index is (collection_id, collected_at)
         var id = await conn.QuerySingleOrDefaultAsync<Guid?>("""
             INSERT INTO collection_snapshots
                 (collection_id, hostname, domain, os_version, agent_version, schema_version, collected_at, payload)
             VALUES (@CollectionId, @Hostname, @Domain, @OsVersion, @AgentVersion, @SchemaVersion, @CollectedAt, @Payload::jsonb)
-            ON CONFLICT (collection_id) DO NOTHING
+            ON CONFLICT (collection_id, collected_at) DO NOTHING
             RETURNING id
             """, new
         {
@@ -47,9 +47,9 @@ public sealed class SnapshotRepository
 
         if (id is null)
         {
-            // Duplicate collection_id — fetch the existing snapshot id
+            // Duplicate (collection_id, collected_at) — return the existing snapshot id
             id = await conn.QuerySingleAsync<Guid>(
-                "SELECT id FROM collection_snapshots WHERE collection_id = @CollectionId",
+                "SELECT id FROM collection_snapshots WHERE collection_id = @CollectionId ORDER BY received_at DESC LIMIT 1",
                 new { CollectionId = Guid.Parse(payload.CollectionId) }, transaction: tx);
             _logger.LogDebug("Duplicate collection_id {CollectionId}, reusing snapshot {Id}", payload.CollectionId, id);
         }

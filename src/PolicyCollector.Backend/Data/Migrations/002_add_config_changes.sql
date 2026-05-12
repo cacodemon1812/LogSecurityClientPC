@@ -6,8 +6,8 @@ CREATE TABLE config_changes (
     field_path      TEXT NOT NULL,
     old_value       TEXT,
     new_value       TEXT,
-    snapshot_before UUID REFERENCES collection_snapshots(id),
-    snapshot_after  UUID REFERENCES collection_snapshots(id)
+    snapshot_before UUID,
+    snapshot_after  UUID
 );
 
 CREATE INDEX idx_changes_hostname ON config_changes(hostname, changed_at DESC);

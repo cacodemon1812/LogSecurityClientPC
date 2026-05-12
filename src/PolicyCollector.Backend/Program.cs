@@ -1,3 +1,4 @@
+using Dapper;
 using Microsoft.AspNetCore.RateLimiting;
 using PolicyCollector.Backend.Api.Endpoints;
 using PolicyCollector.Backend.Api.Middleware;
@@ -10,7 +11,15 @@ using PolicyCollector.Backend.Workers;
 using Serilog;
 using StackExchange.Redis;
 
+// Map snake_case DB columns → PascalCase C# properties globally
+DefaultTypeMap.MatchNamesWithUnderscores = true;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// WORKER_TYPE env: "storage" | "alert" → worker-only mode (no API, no migrations)
+// unset or any other value → full mode (API + both workers + migrations)
+var workerType = (builder.Configuration["WORKER_TYPE"] ?? "").ToLowerInvariant();
+var isWorkerOnly = workerType is "storage" or "alert";
 
 // Serilog
 builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration));
@@ -45,57 +54,61 @@ builder.Services.AddSingleton<ComplianceReportService>();
 builder.Services.AddHttpClient<AlertSender>();
 builder.Services.AddMemoryCache();
 
-// Rate limiting
-builder.Services.AddRateLimiter(options =>
+if (!isWorkerOnly)
 {
-    options.AddFixedWindowLimiter("ingest", cfg =>
+    builder.Services.AddRateLimiter(options =>
     {
-        cfg.PermitLimit = 60;
-        cfg.Window = TimeSpan.FromMinutes(1);
-        cfg.QueueLimit = 0;
+        options.AddFixedWindowLimiter("ingest", cfg =>
+        {
+            cfg.PermitLimit = 60;
+            cfg.Window = TimeSpan.FromMinutes(1);
+            cfg.QueueLimit = 0;
+        });
     });
-});
 
-// Health checks
-builder.Services.AddHealthChecks()
-    .AddCheck<DatabaseHealthCheck>("database")
-    .AddCheck<RedisHealthCheck>("redis");
+    builder.Services.AddHealthChecks()
+        .AddCheck<DatabaseHealthCheck>("database")
+        .AddCheck<RedisHealthCheck>("redis");
+}
 
-// Background Services
-builder.Services.AddHostedService<StorageWorker>();
-builder.Services.AddHostedService<AlertWorker>();
+// Background workers — registered selectively based on WORKER_TYPE
+if (!isWorkerOnly || workerType == "storage")
+    builder.Services.AddHostedService<StorageWorker>();
+if (!isWorkerOnly || workerType == "alert")
+    builder.Services.AddHostedService<AlertWorker>();
 
 var app = builder.Build();
 
-// Run DB migrations
-try
+if (!isWorkerOnly)
 {
-    var connStr = app.Configuration.GetConnectionString("Postgres")
-        ?? throw new InvalidOperationException("Postgres connection string not found");
-    await MigrationRunner.RunAsync(connStr);
+    // Run DB migrations (only in API/full mode — workers wait for backend healthcheck)
+    try
+    {
+        var connStr = app.Configuration.GetConnectionString("Postgres")
+            ?? throw new InvalidOperationException("Postgres connection string not found");
+        await MigrationRunner.RunAsync(connStr);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogCritical(ex, "Database migration failed — startup aborted");
+        throw new InvalidOperationException("Database migration failed", ex);
+    }
+
+    app.UseMiddleware<RequestLoggingMiddleware>();
+    app.UseMiddleware<ApiKeyMiddleware>();
+    app.UseMiddleware<HmacValidationMiddleware>();
+    app.UseRateLimiter();
+
+    app.MapIngestEndpoint();
+    app.MapHostsEndpoints();
+    app.MapDiffEndpoints();
+    app.MapViolationsEndpoints();
+    app.MapInventoryEndpoints();
+    app.MapReportEndpoints();
+    app.MapAdminEndpoints();
+    app.MapHealthChecks("/health");
+    app.MapHealthChecks("/health/ready");
+    app.MapHealthChecks("/health/live");
 }
-catch (Exception ex)
-{
-    app.Logger.LogError(ex, "Database migration failed");
-    throw;
-}
 
-// Middleware pipeline (order matters)
-app.UseMiddleware<RequestLoggingMiddleware>();
-app.UseMiddleware<ApiKeyMiddleware>();
-app.UseMiddleware<HmacValidationMiddleware>();
-app.UseRateLimiter();
-
-// Endpoints
-app.MapIngestEndpoint();
-app.MapHostsEndpoints();
-app.MapDiffEndpoints();
-app.MapViolationsEndpoints();
-app.MapInventoryEndpoints();
-app.MapReportEndpoints();
-app.MapAdminEndpoints();
-app.MapHealthChecks("/health");
-app.MapHealthChecks("/health/ready");
-app.MapHealthChecks("/health/live");
-
-app.Run();
+await app.RunAsync();

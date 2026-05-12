@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   postgres:
     image: timescale/timescaledb:latest-pg16
@@ -35,6 +33,7 @@ services:
       retries: 10
 
   backend:
+    image: policycollector-backend:dev
     build:
       context: ../
       dockerfile: docker/Dockerfile
@@ -42,15 +41,12 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: "8080"
-      ConnectionStrings__Postgres: >
-        Host=postgres;Port=5432;Database=policycollector;
-        Username=pcollector;Password=${POSTGRES_PASSWORD:-devpassword}
-      ConnectionStrings__Redis: >
-        redis:6379,password=${REDIS_PASSWORD:-devredis},abortConnect=false
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=policycollector;Username=pcollector;Password=${POSTGRES_PASSWORD:-devpassword}"
+      ConnectionStrings__Redis: "redis:6379,password=${REDIS_PASSWORD:-devredis},abortConnect=false"
       Backend__ApiKey: ${BACKEND_API_KEY:-dev-api-key-minimum-32-chars-here!!}
       Backend__HmacSecret: ${HMAC_SECRET:-}
       Backend__HmacRequired: "false"
-      Backend__SupportedSchemaVersion: "1"
+      Backend__SupportedSchemaVersion: "1.0"
       Backend__AlertWebhookUrl: ${ALERT_WEBHOOK_URL:-}
     ports: ["8080:8080"]
     depends_on:
@@ -60,42 +56,40 @@ services:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 15s
+      retries: 6
+      start_period: 20s
 
   storage-worker:
+    image: policycollector-worker:dev
     build:
       context: ../
       dockerfile: docker/Dockerfile.worker
     restart: unless-stopped
     environment:
       WORKER_TYPE: storage
-      ConnectionStrings__Postgres: >
-        Host=postgres;Port=5432;Database=policycollector;
-        Username=pcollector;Password=${POSTGRES_PASSWORD:-devpassword}
-      ConnectionStrings__Redis: >
-        redis:6379,password=${REDIS_PASSWORD:-devredis},abortConnect=false
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=policycollector;Username=pcollector;Password=${POSTGRES_PASSWORD:-devpassword}"
+      ConnectionStrings__Redis: "redis:6379,password=${REDIS_PASSWORD:-devredis},abortConnect=false"
+      Backend__ApiKey: ${BACKEND_API_KEY:-dev-api-key-minimum-32-chars-here!!}
     depends_on:
       backend: { condition: service_healthy }
 
   alert-worker:
+    image: policycollector-worker:dev
     build:
       context: ../
       dockerfile: docker/Dockerfile.worker
     restart: unless-stopped
     environment:
       WORKER_TYPE: alert
-      ConnectionStrings__Postgres: >
-        Host=postgres;Port=5432;Database=policycollector;
-        Username=pcollector;Password=${POSTGRES_PASSWORD:-devpassword}
-      ConnectionStrings__Redis: >
-        redis:6379,password=${REDIS_PASSWORD:-devredis},abortConnect=false
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=policycollector;Username=pcollector;Password=${POSTGRES_PASSWORD:-devpassword}"
+      ConnectionStrings__Redis: "redis:6379,password=${REDIS_PASSWORD:-devredis},abortConnect=false"
+      Backend__ApiKey: ${BACKEND_API_KEY:-dev-api-key-minimum-32-chars-here!!}
       Backend__AlertWebhookUrl: ${ALERT_WEBHOOK_URL:-}
     depends_on:
       backend: { condition: service_healthy }
 
   grafana:
-    image: grafana/grafana:10-ubuntu
+    image: grafana/grafana:latest
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_USER: admin

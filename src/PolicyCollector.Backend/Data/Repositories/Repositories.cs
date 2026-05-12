@@ -259,7 +259,7 @@ public sealed class AppInventoryRepository
                     app->>'display_version' AS version,
                     app->>'publisher' AS publisher
                 FROM latest, jsonb_array_elements(payload->'applications') AS app
-                WHERE payload->'applications' IS NOT NULL
+                WHERE jsonb_typeof(payload->'applications') = 'array'
             )
             SELECT
                 display_name,
@@ -288,7 +288,7 @@ public sealed class AppInventoryRepository
             apps AS (
                 SELECT app->>'display_name' AS display_name, app->>'publisher' AS publisher, hostname
                 FROM latest, jsonb_array_elements(payload->'applications') AS app
-                WHERE payload->'applications' IS NOT NULL
+                WHERE jsonb_typeof(payload->'applications') = 'array'
             )
             SELECT COUNT(DISTINCT display_name)
             FROM apps

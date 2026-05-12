@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PolicyCollector.Backend")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("0.1.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.1.0+948f04273e55f2d0981dd81e77059da5b232e4ec")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.1.0+6a8c971488ca339c7e76959235e1f51df398a15e")]
 [assembly: System.Reflection.AssemblyProductAttribute("PolicyCollector.Backend")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PolicyCollector.Backend")]
 [assembly: System.Reflection.AssemblyVersionAttribute("0.1.0.0")]

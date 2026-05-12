@@ -2,10 +2,21 @@ using System.Text.Json.Serialization;
 
 namespace PolicyCollector.Backend.Api.Models;
 
-public sealed record AppInventoryDto(
-    [property: JsonPropertyName("display_name")]    string DisplayName,
-    [property: JsonPropertyName("version")]         string? Version,
-    [property: JsonPropertyName("publisher")]       string? Publisher,
-    [property: JsonPropertyName("machine_count")]   int MachineCount,
-    [property: JsonPropertyName("last_seen")]       DateTimeOffset? LastSeen
-);
+public sealed record AppInventoryDto
+{
+    [JsonPropertyName("display_name")]
+    public string DisplayName { get; init; } = string.Empty;
+
+    [JsonPropertyName("version")]
+    public string? Version { get; init; }
+
+    [JsonPropertyName("publisher")]
+    public string? Publisher { get; init; }
+
+    // PostgreSQL COUNT returns int8 (long)
+    [JsonPropertyName("machine_count")]
+    public long MachineCount { get; init; }
+
+    [JsonPropertyName("last_seen")]
+    public DateTimeOffset? LastSeen { get; init; }
+}

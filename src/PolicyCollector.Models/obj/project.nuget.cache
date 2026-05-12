@@ -1,12 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "whbaJMAbNto=",
+  "dgSpecHash": "d3M9LOdR/8g=",
   "success": true,
   "projectFilePath": "D:\\3.Code\\LogSecurityClientPC\\src\\PolicyCollector.Models\\PolicyCollector.Models.csproj",
-  "expectedPackageFiles": [
-    "C:\\Users\\Admin\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.21\\microsoft.netcore.app.runtime.win-x64.8.0.21.nupkg.sha512",
-    "C:\\Users\\Admin\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.21\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.21.nupkg.sha512",
-    "C:\\Users\\Admin\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.21\\microsoft.aspnetcore.app.runtime.win-x64.8.0.21.nupkg.sha512"
-  ],
+  "expectedPackageFiles": [],
   "logs": []
 }

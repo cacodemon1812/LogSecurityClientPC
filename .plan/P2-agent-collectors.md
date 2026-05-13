@@ -846,7 +846,54 @@ builder.Services.AddSingleton<ICollector<List<AppxEntry>>, AppxCollector>();
 builder.Services.AddSingleton<ICollector<List<ServiceEntry>>, ServiceCollector>();
 builder.Services.AddSingleton<ICollector<List<TaskEntry>>, ScheduledTaskCollector>();
 builder.Services.AddSingleton<ICollector<List<StartupEntry>>, StartupCollector>();
+builder.Services.AddSingleton<ICollector<AdInfo>, AdCollector>();
+builder.Services.AddSingleton<ICollector<RegistryAuditResult>, RegistryAuditCollector>();
 ```
+
+---
+
+### [FILE] `Collectors/AdCollector.cs`
+
+Thu thập thông tin Active Directory cho máy đã join domain.
+
+- Kiểm tra domain-joined qua `HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Domain`
+- Chạy `nltest /dsgetdc:{domain}` để lấy DC name và AD site
+- Lấy OU/Distinguished-Name từ `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Group Policy\State\Machine\Distinguished-Name`
+- Trả về `AdInfo { KerberosAvailable=false }` nếu không join domain (không fail)
+
+**Modules flag:** `ActiveDirectory` (default: `true`)
+
+---
+
+### [FILE] `Collectors/RegistryAuditCollector.cs`
+
+Kiểm tra các registry key nguy hiểm ảnh hưởng đến bảo mật.
+
+**Sections thu thập:**
+| Section | Registry path |
+|---|---|
+| LSA | `HKLM\SYSTEM\...\Control\Lsa` |
+| WDigest | `HKLM\SYSTEM\...\SecurityProviders\WDigest` |
+| SMB | `HKLM\SYSTEM\...\Services\LanmanServer\Parameters` |
+| PowerShell Policy | `HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell` |
+| Winlogon | `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon` |
+| Credential Guard | `HKLM\SYSTEM\...\Control\DeviceGuard` |
+
+**`DangerousFlags` được tự động compute** từ các giá trị đọc được. Mỗi flag có: `name`, `registry_path`, `value_name`, `actual_value`, `expected_value`, `severity` (critical/high/medium/low), `description`.
+
+Các check critical:
+- WDigest `UseLogonCredential=1` → plain-text creds in LSASS
+- Winlogon `Shell` không phải `explorer.exe` → backdoor
+- Winlogon `Userinit` bị sửa → persistence
+
+Các check high:
+- `LmCompatibilityLevel < 3` → NTLMv1 downgrade
+- `DisableRestrictedAdmin=1` → pass-the-hash via RDP
+- `SMB1=1` hoặc `mrxsmb10\Start != 4` → EternalBlue risk
+- `AutoAdminLogon=1` → cleartext creds in registry
+- `LocalAccountTokenFilterPolicy=1` → lateral movement via PtH
+
+**Modules flag:** `RegistryAudit` (default: `true`)
 
 ## Acceptance Criteria
 

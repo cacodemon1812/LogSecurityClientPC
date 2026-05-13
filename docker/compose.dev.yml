@@ -1,109 +1,33 @@
+# Dev overlay — expose ports + dev environment.
+# Dùng với: docker compose -f docker/compose.yml -f docker/compose.dev.yml up
+# Để build từ source, thêm: -f docker/compose.build.yml up --build
+
 services:
   postgres:
-    image: timescale/timescaledb:latest-pg16
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: policycollector
-      POSTGRES_USER: pcollector
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
     ports: ["5432:5432"]
-    volumes:
-      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pcollector -d policycollector"]
       interval: 5s
-      timeout: 3s
-      retries: 10
       start_period: 10s
 
   redis:
-    image: redis:7-alpine
     restart: unless-stopped
-    command: >
-      redis-server
-      --requirepass ${REDIS_PASSWORD:-devredis}
-      --appendonly yes
     ports: ["6379:6379"]
-    volumes:
-      - redisdata:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-devredis}", "ping"]
       interval: 5s
-      timeout: 3s
-      retries: 10
 
   backend:
-    image: policycollector-backend:dev
-    build:
-      context: ../
-      dockerfile: docker/Dockerfile
     restart: unless-stopped
+    ports: ["8080:8080"]
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_HTTP_PORTS: "8080"
-      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=policycollector;Username=pcollector;Password=${POSTGRES_PASSWORD:-devpassword}"
-      ConnectionStrings__Redis: "redis:6379,password=${REDIS_PASSWORD:-devredis},abortConnect=false"
-      Backend__ApiKey: ${BACKEND_API_KEY:-dev-api-key-minimum-32-chars-here!!}
-      Backend__HmacSecret: ${HMAC_SECRET:-}
-      Backend__HmacRequired: "false"
-      Backend__SupportedSchemaVersion: "1.0"
-      Backend__AlertWebhookUrl: ${ALERT_WEBHOOK_URL:-}
-    ports: ["8080:8080"]
-    depends_on:
-      postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 20s
 
   storage-worker:
-    image: policycollector-worker:dev
-    build:
-      context: ../
-      dockerfile: docker/Dockerfile.worker
     restart: unless-stopped
-    environment:
-      WORKER_TYPE: storage
-      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=policycollector;Username=pcollector;Password=${POSTGRES_PASSWORD:-devpassword}"
-      ConnectionStrings__Redis: "redis:6379,password=${REDIS_PASSWORD:-devredis},abortConnect=false"
-      Backend__ApiKey: ${BACKEND_API_KEY:-dev-api-key-minimum-32-chars-here!!}
-    depends_on:
-      backend: { condition: service_healthy }
 
   alert-worker:
-    image: policycollector-worker:dev
-    build:
-      context: ../
-      dockerfile: docker/Dockerfile.worker
     restart: unless-stopped
-    environment:
-      WORKER_TYPE: alert
-      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=policycollector;Username=pcollector;Password=${POSTGRES_PASSWORD:-devpassword}"
-      ConnectionStrings__Redis: "redis:6379,password=${REDIS_PASSWORD:-devredis},abortConnect=false"
-      Backend__ApiKey: ${BACKEND_API_KEY:-dev-api-key-minimum-32-chars-here!!}
-      Backend__AlertWebhookUrl: ${ALERT_WEBHOOK_URL:-}
-    depends_on:
-      backend: { condition: service_healthy }
 
   grafana:
-    image: grafana/grafana:latest
     restart: unless-stopped
-    environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-devgrafana}
-      GF_INSTALL_PLUGINS: ""
     ports: ["3000:3000"]
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
-    depends_on:
-      postgres: { condition: service_healthy }
-
-volumes:
-  pgdata:
-  redisdata:
-  grafana_data:

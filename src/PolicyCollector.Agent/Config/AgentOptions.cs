@@ -20,4 +20,6 @@ public sealed class ModuleOptions
     public bool Services { get; init; } = true;
     public bool ScheduledTasks { get; init; } = true;
     public bool StartupEntries { get; init; } = true;
+    public bool ActiveDirectory { get; init; } = true;
+    public bool RegistryAudit { get; init; } = true;
 }

@@ -25,7 +25,9 @@
   "appx_packages":   [ /* AppxEntry[]   */ ],
   "services":        [ /* ServiceEntry[] */ ],
   "scheduled_tasks": [ /* TaskEntry[]   */ ],
-  "startup_entries": [ /* StartupEntry[] */ ]
+  "startup_entries": [ /* StartupEntry[] */ ],
+  "active_directory": { /* AdInfo — null nếu không join domain hoặc module tắt */ },
+  "registry_audit":   { /* RegistryAuditResult */ }
 }
 ```
 
@@ -216,6 +218,72 @@
   ]
 }
 ```
+
+### AdInfo
+
+```jsonc
+{
+  "domain_controller":  "DC01.corp.local",
+  "site_name":          "MainSite",
+  "ou_path":            "CN=WS-FINANCE-01,OU=Finance,OU=Workstations,DC=corp,DC=local",
+  "kerberos_available": true
+}
+```
+
+> `active_directory` là `null` khi máy không join domain.
+
+### RegistryAuditResult
+
+```jsonc
+{
+  "lsa": {
+    "lm_compat_level":                 5,
+    "no_lm_hash":                      true,
+    "restrict_anonymous":              1,
+    "restrict_anonymous_sam":          true,
+    "disable_restricted_admin":        false,
+    "run_as_ppl":                      true,
+    "disable_domain_creds":            false,
+    "local_account_token_filter_policy": false
+  },
+  "wdigest": {
+    "use_logon_credential": false
+  },
+  "smb": {
+    "smb1_enabled":           false,
+    "smb1_driver_start":      4,       // 4=Disabled, 3=Manual, 2=Auto
+    "server_signing_enabled": true,
+    "client_signing_required":false
+  },
+  "powershell_policy": {
+    "execution_policy":    "RemoteSigned",
+    "script_block_logging":true,
+    "transcription":       false
+  },
+  "winlogon": {
+    "userinit":        "C:\\Windows\\system32\\userinit.exe,",
+    "shell":           "explorer.exe",
+    "auto_admin_logon":false
+  },
+  "credential_guard": {
+    "vbs_enabled":  true,
+    "lsa_cfg_flags": 1     // 0=disabled, 1=enabled, 2=enabled+UEFI lock
+  },
+  "dangerous_flags": [
+    {
+      "name":           "LSASS_PPL_Disabled",
+      "registry_path":  "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa",
+      "value_name":     "RunAsPPL",
+      "actual_value":   "(not set)",
+      "expected_value": "1",
+      "severity":       "medium",
+      "description":    "LSASS not running as Protected Process Light — credential dumping possible without driver"
+    }
+  ]
+}
+```
+
+**Severity levels:** `critical` | `high` | `medium` | `low`
 
 ---
 

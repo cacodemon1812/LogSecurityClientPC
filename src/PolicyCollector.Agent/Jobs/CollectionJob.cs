@@ -18,6 +18,8 @@ public sealed class CollectionJob
     private readonly ICollector<List<ServiceEntry>> _serviceCollector;
     private readonly ICollector<List<TaskEntry>> _taskCollector;
     private readonly ICollector<List<StartupEntry>> _startupCollector;
+    private readonly ICollector<AdInfo> _adCollector;
+    private readonly ICollector<RegistryAuditResult> _registryAuditCollector;
     private readonly ILogger<CollectionJob> _logger;
 
     public CollectionJob(
@@ -33,6 +35,8 @@ public sealed class CollectionJob
         ICollector<List<ServiceEntry>> serviceCollector,
         ICollector<List<TaskEntry>> taskCollector,
         ICollector<List<StartupEntry>> startupCollector,
+        ICollector<AdInfo> adCollector,
+        ICollector<RegistryAuditResult> registryAuditCollector,
         ILogger<CollectionJob> logger)
     {
         _options = options;
@@ -47,6 +51,8 @@ public sealed class CollectionJob
         _serviceCollector = serviceCollector;
         _taskCollector = taskCollector;
         _startupCollector = startupCollector;
+        _adCollector = adCollector;
+        _registryAuditCollector = registryAuditCollector;
         _logger = logger;
     }
 
@@ -72,6 +78,8 @@ public sealed class CollectionJob
         List<ServiceEntry>? services = null;
         List<TaskEntry>? scheduledTasks = null;
         List<StartupEntry>? startupEntries = null;
+        AdInfo? activeDirectory = null;
+        RegistryAuditResult? registryAudit = null;
 
         var hostTask = RunCollector(_hostCollector, timeout, cts.Token)
             .ContinueWith(t => hostInfo = t.Result?.Data, TaskContinuationOptions.OnlyOnRanToCompletion);
@@ -147,6 +155,20 @@ public sealed class CollectionJob
             tasks.Add(t);
         }
 
+        if (modules.ActiveDirectory)
+        {
+            var t = RunCollector(_adCollector, timeout, cts.Token)
+                .ContinueWith(r => activeDirectory = r.Result?.Data, TaskContinuationOptions.OnlyOnRanToCompletion);
+            tasks.Add(t);
+        }
+
+        if (modules.RegistryAudit)
+        {
+            var t = RunCollector(_registryAuditCollector, timeout, cts.Token)
+                .ContinueWith(r => registryAudit = r.Result?.Data, TaskContinuationOptions.OnlyOnRanToCompletion);
+            tasks.Add(t);
+        }
+
         try
         {
             await Task.WhenAll(tasks);
@@ -167,7 +189,9 @@ public sealed class CollectionJob
             appxPackages,
             services,
             scheduledTasks,
-            startupEntries);
+            startupEntries,
+            activeDirectory,
+            registryAudit);
 
         _logger.LogInformation("Collection cycle completed in {Duration}ms",
             (DateTimeOffset.UtcNow - startTime).TotalMilliseconds);

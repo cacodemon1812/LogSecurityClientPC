@@ -49,6 +49,12 @@ public sealed class CollectionPayload
     [JsonPropertyName("startup_entries")]
     public List<StartupEntry>? StartupEntries { get; init; }
 
+    [JsonPropertyName("active_directory")]
+    public AdInfo? ActiveDirectory { get; init; }
+
+    [JsonPropertyName("registry_audit")]
+    public RegistryAuditResult? RegistryAudit { get; init; }
+
     private static string GetAgentVersion() =>
         typeof(CollectionPayload).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 }

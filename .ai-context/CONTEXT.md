@@ -37,7 +37,7 @@
 ### Phase 1 — Agent MVP
 
 ✅ **P1** — Agent Foundation: Models, interfaces, infrastructure helpers  
-✅ **P2** — Collectors: 11 collectors (HostInfo, GPO, SecurityPolicy, Firewall, Defender, BitLocker, AppInventory, AppX, Services, ScheduledTasks, Startup)  
+✅ **P2** — Collectors: 13 collectors (HostInfo, GPO, SecurityPolicy, Firewall, Defender, BitLocker, AppInventory, AppX, Services, ScheduledTasks, Startup, **ActiveDirectory**, **RegistryAudit**)  
 ✅ **P3** — Transport: HttpTransport (HMAC-SHA256), LocalQueue (SQLite), CollectionScheduler, RetryJob  
 ✅ **P4** — Installer: WiX MSI with custom actions, ADMX GPO templates, Build script
 
@@ -53,4 +53,4 @@
 ✅ **P9** — Hardening: mTLS, registry override, compliance reports, Kubernetes scale  
 ✅ Phiên bản Backend: 0.1.0-alpha
 
-**Cập nhật context lần cuối:** 2026-05-12 — P1-P9 hoàn thành, v1.0 production ready
+**Cập nhật context lần cuối:** 2026-05-13 — Thêm AdCollector + RegistryAuditCollector (AD join info + dangerous registry checks)

@@ -10,7 +10,7 @@
 
 .PARAMETER SourceDir
     Path to the directory containing PolicyCollector.Agent.exe.
-    Defaults to the directory containing this script's parent (dist\agent).
+    Defaults to <script_parent>\dist\agent.
 
 .PARAMETER BackendUrl
     URL of the ingest endpoint, e.g. https://backend.corp.local/api/v1/ingest
@@ -18,14 +18,35 @@
 .PARAMETER ApiKey
     API key to authenticate with the backend (written to appsettings.json).
 
+.PARAMETER ServiceAccount
+    Windows account under which the service runs.
+    Supported values:
+      LocalSystem              — (default) full privileges; secedit/auditpol/gpresult work
+      NT AUTHORITY\NetworkService — network access, no local admin; policy collectors partial
+      NT AUTHORITY\LocalService   — no network; policy collectors partial
+      DOMAIN\User              — custom domain/local account; must supply -ServicePassword
+                                  and the account must be in local Administrators for full data
+.PARAMETER ServicePassword
+    Password for a custom domain/local service account.
+    Leave empty for built-in accounts (LocalSystem, NetworkService, LocalService).
+
+.NOTES
+    When the service runs as a non-Administrator account the following collectors
+    will return partial data (registry-based checks still work):
+      SecurityPolicy — PasswordPolicy and UserRights empty (secedit requires admin)
+                       AuditPolicy empty (auditpol requires SeSecurityPrivilege)
+      GPO            — may fail (gpresult /SCOPE COMPUTER requires admin)
+      BitLocker      — may fail (Get-BitLockerVolume requires admin)
+    The RegistryAudit and ActiveDirectory collectors work without elevation.
+
 .EXAMPLE
-    # Install with minimal config
     .\Install-Service.ps1 -BackendUrl "https://backend.corp.local/api/v1/ingest" -ApiKey "secret"
 
-    # Update after new build
+    .\Install-Service.ps1 -BackendUrl "https://backend.corp.local/api/v1/ingest" -ApiKey "secret" `
+        -ServiceAccount "CORP\svc-policycollector" -ServicePassword "P@ssw0rd"
+
     .\Install-Service.ps1 -Action update
 
-    # Remove (keeps data in ProgramData)
     .\Install-Service.ps1 -Action remove
 #>
 
@@ -44,7 +65,9 @@ param(
     [string]$ServiceName = "PolicyCollectorSvc",
     [string]$ServiceDisplayName = "PolicyCollector Security Agent",
     [string]$ServiceDescription = "Collects security policy snapshots and forwards them to the backend.",
-    [string]$ServiceAccount = "LocalSystem"
+
+    [string]$ServiceAccount = "LocalSystem",
+    [string]$ServicePassword = ""
 )
 
 Set-StrictMode -Version Latest
@@ -53,24 +76,19 @@ $ErrorActionPreference = "Stop"
 # ── helpers ─────────────────────────────────────────────────────────────────
 
 function Write-Step([string]$msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
-function Write-Ok([string]$msg) { Write-Host "    OK  $msg" -ForegroundColor Green }
+function Write-Ok([string]$msg)   { Write-Host "    OK  $msg" -ForegroundColor Green }
 function Write-Warn([string]$msg) { Write-Host "    WARN $msg" -ForegroundColor Yellow }
 
 function Invoke-Sc {
     param(
-        [Parameter(Mandatory = $true)]
-        [string[]]$Arguments,
-
-        [Parameter(Mandatory = $true)]
-        [string]$ErrorContext
+        [Parameter(Mandatory = $true)] [string[]]$Arguments,
+        [Parameter(Mandatory = $true)] [string]$ErrorContext
     )
-
     $output = & sc.exe @Arguments 2>&1
     if ($LASTEXITCODE -ne 0) {
         $details = ($output | Out-String).Trim()
         throw "sc.exe failed while $ErrorContext (exit code $LASTEXITCODE).`n$details"
     }
-
     return $output
 }
 
@@ -82,6 +100,23 @@ function Stop-ServiceIfRunning {
         $svc.WaitForStatus("Stopped", "00:00:30")
         Write-Ok "Service stopped"
     }
+}
+
+# Returns $true for built-in high-privilege accounts that do not need a password
+function IsBuiltInAccount([string]$account) {
+    $builtIn = @(
+        "LocalSystem",
+        "",
+        "NT AUTHORITY\SYSTEM",
+        "NT AUTHORITY\NetworkService",
+        "NT AUTHORITY\LocalService"
+    )
+    return $builtIn -contains $account
+}
+
+# Returns $true when the account is expected to have local admin rights
+function IsElevatedAccount([string]$account) {
+    return ($account -eq "LocalSystem" -or $account -eq "" -or $account -eq "NT AUTHORITY\SYSTEM")
 }
 
 # ── resolve source dir ───────────────────────────────────────────────────────
@@ -143,10 +178,23 @@ if ($Action -eq "update") {
 # ── INSTALL ───────────────────────────────────────────────────────────────────
 
 Write-Step "Installing PolicyCollector Agent..."
-Write-Host "  Source  : $SourceDir"
-Write-Host "  Install : $InstallDir"
-Write-Host "  Data    : $DataDir"
-Write-Host "  Service : $ServiceName"
+Write-Host "  Source   : $SourceDir"
+Write-Host "  Install  : $InstallDir"
+Write-Host "  Data     : $DataDir"
+Write-Host "  Service  : $ServiceName"
+Write-Host "  Account  : $ServiceAccount"
+
+# Warn when running as a non-admin account — some collectors will have partial data
+if (-not (IsElevatedAccount $ServiceAccount)) {
+    Write-Host ""
+    Write-Warn "Service account '$ServiceAccount' is not LocalSystem."
+    Write-Warn "The following collectors will return partial data (registry-based checks still work):"
+    Write-Warn "  SecurityPolicy — PasswordPolicy/AuditPolicy empty (secedit + auditpol require admin)"
+    Write-Warn "  GPO            — may fail (gpresult /SCOPE COMPUTER requires admin)"
+    Write-Warn "  BitLocker      — may fail (Get-BitLockerVolume requires admin)"
+    Write-Warn "Add the account to the local Administrators group for full data collection."
+    Write-Host ""
+}
 
 # 1. Create directories
 foreach ($dir in @($InstallDir, "$DataDir\logs")) {
@@ -164,7 +212,7 @@ Write-Ok "Binaries copied"
 # 3. Write appsettings.json to DataDir (if it doesn't exist yet)
 if (-not (Test-Path $configDest)) {
     $resolvedBackendUrl = if ($BackendUrl -ne "") { $BackendUrl } else { "https://BACKEND_HOST/api/v1/ingest" }
-    $resolvedApiKey = if ($ApiKey -ne "") { $ApiKey }     else { "REPLACE_WITH_API_KEY" }
+    $resolvedApiKey     = if ($ApiKey -ne "")     { $ApiKey }     else { "REPLACE_WITH_API_KEY" }
 
     $config = @"
 {
@@ -182,7 +230,9 @@ if (-not (Test-Path $configDest)) {
       "AppxPackages": false,
       "Services": true,
       "ScheduledTasks": true,
-      "StartupEntries": true
+      "StartupEntries": true,
+      "ActiveDirectory": true,
+      "RegistryAudit": true
     }
   },
   "Transport": {
@@ -235,35 +285,72 @@ else {
     Write-Warn "Config already exists at $configDest — skipped (not overwritten)"
 }
 
-# 4. Set ACL — LocalSystem can already read %ProgramFiles%; grant read on DataDir
+# 4. Set ACLs on DataDir for the service account
 $acl = Get-Acl $DataDir
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+
+# Always ensure SYSTEM has full control
+$systemRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
     "NT AUTHORITY\SYSTEM", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
-$acl.AddAccessRule($rule)
+$acl.AddAccessRule($systemRule)
+
+# Grant the service account FullControl if it is not LocalSystem / SYSTEM
+if (-not (IsElevatedAccount $ServiceAccount)) {
+    $svcRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+        $ServiceAccount, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+    $acl.AddAccessRule($svcRule)
+    Write-Ok "Permissions granted to '$ServiceAccount' on $DataDir"
+}
+
 Set-Acl -Path $DataDir -AclObject $acl
 Write-Ok "Permissions set on $DataDir"
 
-# 5. Create Windows service
+# 5. Create or update Windows service
 $exePath = Join-Path $InstallDir "PolicyCollector.Agent.exe"
-
-# Pass DataDir as content root so the service finds appsettings.json in DataDir
 $binPath = "`"$exePath`" --contentRoot `"$DataDir`""
 
 if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) {
     Write-Warn "Service already exists — updating binary path"
-    Invoke-Sc -Arguments @("config", $ServiceName, "binPath= $binPath") -ErrorContext "updating binary path for service '$ServiceName'" | Out-Null
+    Invoke-Sc -Arguments @("config", $ServiceName, "binPath=", $binPath) `
+              -ErrorContext "updating binary path for service '$ServiceName'" | Out-Null
 }
 else {
-    if ($ServiceAccount -ne "LocalSystem") {
-        throw "Only LocalSystem is currently supported by this installer. Received ServiceAccount='$ServiceAccount'."
+    if (IsBuiltInAccount $ServiceAccount) {
+        # Built-in accounts: New-Service handles LocalSystem; use sc.exe for NetworkService/LocalService
+        if ($ServiceAccount -eq "LocalSystem" -or $ServiceAccount -eq "") {
+            New-Service `
+                -Name $ServiceName `
+                -BinaryPathName $binPath `
+                -DisplayName $ServiceDisplayName `
+                -Description $ServiceDescription `
+                -StartupType Automatic | Out-Null
+        }
+        else {
+            # NetworkService / LocalService via sc.exe (New-Service doesn't accept these directly)
+            Invoke-Sc -Arguments @(
+                "create", $ServiceName,
+                "binPath=",    $binPath,
+                "start=",      "auto",
+                "obj=",        $ServiceAccount,
+                "DisplayName=", $ServiceDisplayName
+            ) -ErrorContext "creating service '$ServiceName'" | Out-Null
+        }
     }
+    else {
+        # Custom domain/local account — requires password
+        if ($ServicePassword -eq "") {
+            throw "ServicePassword is required when ServiceAccount is not a built-in account. " +
+                  "Provide -ServicePassword or use LocalSystem / NetworkService / LocalService."
+        }
 
-    New-Service `
-        -Name $ServiceName `
-        -BinaryPathName $binPath `
-        -DisplayName $ServiceDisplayName `
-        -Description $ServiceDescription `
-        -StartupType Automatic | Out-Null
+        Invoke-Sc -Arguments @(
+            "create", $ServiceName,
+            "binPath=",    $binPath,
+            "start=",      "auto",
+            "obj=",        $ServiceAccount,
+            "password=",   $ServicePassword,
+            "DisplayName=", $ServiceDisplayName
+        ) -ErrorContext "creating service '$ServiceName'" | Out-Null
+    }
 
     if (-not (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue)) {
         throw "Service '$ServiceName' was not found after create command completed."
@@ -272,10 +359,12 @@ else {
     Write-Ok "Service created"
 }
 
-Invoke-Sc -Arguments @("description", $ServiceName, $ServiceDescription) -ErrorContext "setting description for service '$ServiceName'" | Out-Null
+Invoke-Sc -Arguments @("description", $ServiceName, $ServiceDescription) `
+          -ErrorContext "setting description for service '$ServiceName'" | Out-Null
 
 # 6. Configure failure recovery: restart after 1 min / 2 min / 5 min
-Invoke-Sc -Arguments @("failure", $ServiceName, "reset= 86400", "actions= restart/60000/restart/120000/restart/300000") -ErrorContext "configuring failure recovery for service '$ServiceName'" | Out-Null
+Invoke-Sc -Arguments @("failure", $ServiceName, "reset=", "86400", "actions=", "restart/60000/restart/120000/restart/300000") `
+          -ErrorContext "configuring failure recovery for service '$ServiceName'" | Out-Null
 Write-Ok "Failure recovery configured"
 
 # 7. Done

@@ -1,0 +1,21 @@
+# Build overlay — thêm context build cho backend và worker.
+# Dùng cùng với compose.dev.yml khi cần build image từ source:
+#   docker compose -f docker/compose.yml -f docker/compose.dev.yml -f docker/compose.build.yml up --build
+#
+# KHÔNG dùng file này trong môi trường không có Docker build (CI pull-only, không có PowerShell, v.v.)
+
+services:
+  backend:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+
+  storage-worker:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.worker
+
+  alert-worker:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.worker

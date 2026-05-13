@@ -55,6 +55,8 @@ builder.Services.AddSingleton<ICollector<List<AppxEntry>>, AppxCollector>();
 builder.Services.AddSingleton<ICollector<List<ServiceEntry>>, ServiceCollector>();
 builder.Services.AddSingleton<ICollector<List<TaskEntry>>, ScheduledTaskCollector>();
 builder.Services.AddSingleton<ICollector<List<StartupEntry>>, StartupCollector>();
+builder.Services.AddSingleton<ICollector<AdInfo>, AdCollector>();
+builder.Services.AddSingleton<ICollector<RegistryAuditResult>, RegistryAuditCollector>();
 
 // Jobs and Services
 builder.Services.AddSingleton<CollectionJob>();

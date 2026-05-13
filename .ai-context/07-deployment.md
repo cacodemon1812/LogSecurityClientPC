@@ -43,6 +43,34 @@ Silent install properties:
 
 ---
 
+## Service Account cho Agent
+
+```powershell
+# Mặc định: LocalSystem — đầy đủ quyền, tất cả collectors hoạt động
+.\Install-Service.ps1 -BackendUrl "..." -ApiKey "..."
+
+# NetworkService — quyền thấp hơn; SecurityPolicy/GPO/BitLocker sẽ partial
+.\Install-Service.ps1 -BackendUrl "..." -ApiKey "..." -ServiceAccount "NT AUTHORITY\NetworkService"
+
+# Domain service account — cần password, thêm vào Administrators để đủ quyền
+.\Install-Service.ps1 -BackendUrl "..." -ApiKey "..." `
+    -ServiceAccount "CORP\svc-policycollector" -ServicePassword "P@ssw0rd"
+```
+
+Khi chạy với tài khoản không phải LocalSystem/Administrator, agent vẫn chạy bình thường nhưng một số collector trả về dữ liệu không đầy đủ (được log ở mức Warning, không gây crash):
+
+| Collector | Không có Admin | Lý do |
+|---|---|---|
+| SecurityPolicy → PasswordPolicy, UserRights | Empty | `secedit` yêu cầu admin |
+| SecurityPolicy → AuditPolicy | Empty | `auditpol` yêu cầu SeSecurityPrivilege |
+| GPO | Có thể fail | `gpresult /SCOPE COMPUTER` yêu cầu admin |
+| BitLocker | Có thể fail | `Get-BitLockerVolume` yêu cầu admin |
+| RegistryAudit | ✅ Đầy đủ | Chỉ đọc registry HKLM |
+| ActiveDirectory | ✅ Đầy đủ | `nltest /dsgetdc:` không yêu cầu admin |
+| Firewall, Defender, AppInventory, Services, Startup | ✅ Đầy đủ | Registry / WMI / PS |
+
+---
+
 ## Phương thức triển khai hàng loạt
 
 ### Phương thức 1: GPO Software Installation (Domain)
@@ -173,16 +201,37 @@ Phase 3: Toàn bộ — rolling theo OU
 
 ### Docker Compose (small scale, ≤ 500 endpoints)
 
+Cấu trúc file compose theo overlay pattern — `build:` được tách riêng để không ảnh hưởng môi trường không có Docker build:
+
+```
+docker/
+  compose.yml        ← base: toàn bộ services, image sẵn, không có build:
+  compose.dev.yml    ← overlay: ports, dev env vars, restart=unless-stopped
+  compose.build.yml  ← overlay: chỉ chứa build: context (thêm khi muốn build local)
+  compose.prod.yml   ← overlay: prod env vars bắt buộc, restart=always
+```
+
 ```bash
-docker compose -f docker/compose.prod.yml up -d
+# Dev — dùng image sẵn (không cần Docker build / PowerShell)
+docker compose -f docker/compose.yml -f docker/compose.dev.yml up
+
+# Dev — build từ source code
+docker compose -f docker/compose.yml -f docker/compose.dev.yml -f docker/compose.build.yml up --build
+
+# Production
+docker compose -f docker/compose.yml -f docker/compose.prod.yml up -d
 
 # Cấu hình qua .env file (không commit .env vào git)
 POSTGRES_PASSWORD=<strong-password>
 REDIS_PASSWORD=<strong-password>
 BACKEND_API_KEY=<32-byte-random>
-BACKEND_HMAC_SECRET=<32-byte-random>
-TLS_CERT_PATH=/certs/fullchain.pem
-TLS_KEY_PATH=/certs/privkey.pem
+HMAC_SECRET=<32-byte-random>
+DOCKER_REGISTRY=registry.corp.local
+VERSION=1.0.0
+POSTGRES_CONNECTION_STRING=Host=...
+REDIS_CONNECTION_STRING=...
+GRAFANA_USER=admin
+GRAFANA_PASSWORD=<password>
 ```
 
 ### Kubernetes (medium scale, 500-5000 endpoints)

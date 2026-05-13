@@ -40,11 +40,29 @@ public sealed class SecurityPolicyCollector : ICollector<SecPolicyResult>
 
                 await Task.WhenAll(seceditTask, auditpolTask);
 
+                var seceditOk   = seceditTask.Result.ExitCode == 0 && File.Exists(tempInf);
+                var auditpolOk  = auditpolTask.Result.ExitCode == 0 &&
+                                  !string.IsNullOrWhiteSpace(auditpolTask.Result.Stdout);
+
+                if (!seceditOk)
+                    _logger.LogWarning(
+                        "secedit export failed (exitCode={ExitCode}, fileCreated={FileCreated}) — " +
+                        "PasswordPolicy and UserRights will be empty. " +
+                        "Run the service as LocalSystem or a member of local Administrators.",
+                        seceditTask.Result.ExitCode, File.Exists(tempInf));
+
+                if (!auditpolOk)
+                    _logger.LogWarning(
+                        "auditpol failed (exitCode={ExitCode}) — AuditPolicy will be empty. " +
+                        "Run the service as LocalSystem or a member of local Administrators " +
+                        "(requires SeSecurityPrivilege).",
+                        auditpolTask.Result.ExitCode);
+
                 var result = new SecPolicyResult
                 {
-                    PasswordPolicy = ParsePasswordPolicy(tempInf),
-                    UserRights     = ParseUserRights(tempInf),
-                    AuditPolicy    = ParseAuditPolicy(auditpolTask.Result.Stdout),
+                    PasswordPolicy = seceditOk  ? ParsePasswordPolicy(tempInf)          : new PasswordPolicy(),
+                    UserRights     = seceditOk  ? ParseUserRights(tempInf)               : [],
+                    AuditPolicy    = auditpolOk ? ParseAuditPolicy(auditpolTask.Result.Stdout) : new AuditPolicy(),
                     Uac            = ReadUacFromRegistry(),
                     Tls            = ReadTlsFromRegistry(),
                     Rdp            = ReadRdpFromRegistry()

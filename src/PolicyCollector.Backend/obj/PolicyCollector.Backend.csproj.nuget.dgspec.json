@@ -1,23 +1,24 @@
 {
   "format": 1,
   "restore": {
-    "D:\\3.Code\\LogSecurityClientPC\\src\\PolicyCollector.Backend\\PolicyCollector.Backend.csproj": {}
+    "D:\\SrcCode\\GitHub\\LogSecurityClientPC\\src\\PolicyCollector.Backend\\PolicyCollector.Backend.csproj": {}
   },
   "projects": {
-    "D:\\3.Code\\LogSecurityClientPC\\src\\PolicyCollector.Backend\\PolicyCollector.Backend.csproj": {
+    "D:\\SrcCode\\GitHub\\LogSecurityClientPC\\src\\PolicyCollector.Backend\\PolicyCollector.Backend.csproj": {
       "version": "0.1.0",
       "restore": {
-        "projectUniqueName": "D:\\3.Code\\LogSecurityClientPC\\src\\PolicyCollector.Backend\\PolicyCollector.Backend.csproj",
+        "projectUniqueName": "D:\\SrcCode\\GitHub\\LogSecurityClientPC\\src\\PolicyCollector.Backend\\PolicyCollector.Backend.csproj",
         "projectName": "PolicyCollector.Backend",
-        "projectPath": "D:\\3.Code\\LogSecurityClientPC\\src\\PolicyCollector.Backend\\PolicyCollector.Backend.csproj",
-        "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-        "outputPath": "D:\\3.Code\\LogSecurityClientPC\\src\\PolicyCollector.Backend\\obj\\",
+        "projectPath": "D:\\SrcCode\\GitHub\\LogSecurityClientPC\\src\\PolicyCollector.Backend\\PolicyCollector.Backend.csproj",
+        "packagesPath": "C:\\Users\\congtt\\.nuget\\packages\\",
+        "outputPath": "D:\\SrcCode\\GitHub\\LogSecurityClientPC\\src\\PolicyCollector.Backend\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
-          "D:\\1.CodeProgram\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages",
+          "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
         ],
         "configFilePaths": [
-          "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\congtt\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -26,14 +27,14 @@
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "https://nuget.org/api/v2": {}
+          "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "D:\\3.Code\\LogSecurityClientPC\\src\\PolicyCollector.Models\\PolicyCollector.Models.csproj": {
-                "projectPath": "D:\\3.Code\\LogSecurityClientPC\\src\\PolicyCollector.Models\\PolicyCollector.Models.csproj"
+              "D:\\SrcCode\\GitHub\\LogSecurityClientPC\\src\\PolicyCollector.Models\\PolicyCollector.Models.csproj": {
+                "projectPath": "D:\\SrcCode\\GitHub\\LogSecurityClientPC\\src\\PolicyCollector.Models\\PolicyCollector.Models.csproj"
               }
             }
           }
@@ -48,7 +49,7 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "9.0.300"
+        "SdkAnalysisLevel": "10.0.200"
       },
       "frameworks": {
         "net8.0": {
@@ -94,24 +95,25 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.306/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.203/PortableRuntimeIdentifierGraph.json"
         }
       }
     },
-    "D:\\3.Code\\LogSecurityClientPC\\src\\PolicyCollector.Models\\PolicyCollector.Models.csproj": {
+    "D:\\SrcCode\\GitHub\\LogSecurityClientPC\\src\\PolicyCollector.Models\\PolicyCollector.Models.csproj": {
       "version": "0.1.0",
       "restore": {
-        "projectUniqueName": "D:\\3.Code\\LogSecurityClientPC\\src\\PolicyCollector.Models\\PolicyCollector.Models.csproj",
+        "projectUniqueName": "D:\\SrcCode\\GitHub\\LogSecurityClientPC\\src\\PolicyCollector.Models\\PolicyCollector.Models.csproj",
         "projectName": "PolicyCollector.Models",
-        "projectPath": "D:\\3.Code\\LogSecurityClientPC\\src\\PolicyCollector.Models\\PolicyCollector.Models.csproj",
-        "packagesPath": "C:\\Users\\Admin\\.nuget\\packages\\",
-        "outputPath": "D:\\3.Code\\LogSecurityClientPC\\src\\PolicyCollector.Models\\obj\\",
+        "projectPath": "D:\\SrcCode\\GitHub\\LogSecurityClientPC\\src\\PolicyCollector.Models\\PolicyCollector.Models.csproj",
+        "packagesPath": "C:\\Users\\congtt\\.nuget\\packages\\",
+        "outputPath": "D:\\SrcCode\\GitHub\\LogSecurityClientPC\\src\\PolicyCollector.Models\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
-          "D:\\1.CodeProgram\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages",
+          "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
         ],
         "configFilePaths": [
-          "C:\\Users\\Admin\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\congtt\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -120,7 +122,7 @@
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "https://nuget.org/api/v2": {}
+          "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
           "net8.0": {
@@ -138,7 +140,7 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "9.0.300"
+        "SdkAnalysisLevel": "10.0.200"
       },
       "frameworks": {
         "net8.0": {
@@ -159,7 +161,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.306/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.203/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

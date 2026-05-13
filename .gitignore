@@ -8,3 +8,6 @@
 /dist
 /src/PolicyCollector.Backend/obj
 /src/PolicyCollector.Backend/obj
+/.vs
+/src/PolicyCollector.Models/bin
+/src/PolicyCollector.Models/obj

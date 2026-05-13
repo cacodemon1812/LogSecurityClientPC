@@ -53,10 +53,11 @@ public sealed class CollectionScheduler : BackgroundService
             var payload = await _job.RunAsync(ct);
             var result = await _transport.SendAsync(payload, ct);
 
-            if (!result.Success && result.ShouldRetry)
+            if (!result.Success)
             {
-                _logger.LogWarning("Send failed (retry), queuing payload locally");
-                _queue.Enqueue(payload);
+                LogSendFailure(result, payload);
+                if (result.ShouldRetry)
+                    _queue.Enqueue(payload);
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -66,5 +67,41 @@ public sealed class CollectionScheduler : BackgroundService
         {
             _logger.LogError(ex, "Collection cycle failed unexpectedly");
         }
+    }
+
+    private void LogSendFailure(TransportResult result, CollectionPayload payload)
+    {
+        if (result.HttpStatusCode.HasValue)
+            _logger.LogWarning(
+                "Backend rejected payload — HTTP {StatusCode}: {Error} (will retry={ShouldRetry})",
+                result.HttpStatusCode, result.ErrorMessage, result.ShouldRetry);
+        else
+            _logger.LogWarning(
+                "Backend unreachable — {Error} (will retry={ShouldRetry})",
+                result.ErrorMessage, result.ShouldRetry);
+
+        var host = payload.Host;
+        var modules = new List<string>();
+        if (payload.Gpo is not null) modules.Add("GPO");
+        if (payload.SecurityPolicy is not null) modules.Add("SecurityPolicy");
+        if (payload.Firewall is not null) modules.Add("Firewall");
+        if (payload.Defender is not null) modules.Add("Defender");
+        if (payload.BitLocker is not null) modules.Add($"BitLocker({payload.BitLocker.Count})");
+        if (payload.Applications is not null) modules.Add($"Apps({payload.Applications.Count})");
+        if (payload.AppxPackages is not null) modules.Add($"AppxPackages({payload.AppxPackages.Count})");
+        if (payload.Services is not null) modules.Add($"Services({payload.Services.Count})");
+        if (payload.ScheduledTasks is not null) modules.Add($"Tasks({payload.ScheduledTasks.Count})");
+        if (payload.StartupEntries is not null) modules.Add($"Startup({payload.StartupEntries.Count})");
+
+        _logger.LogInformation(
+            "Collected data summary (not yet delivered) — id={CollectionId} at={CollectedAt} " +
+            "host={Hostname} ips=[{Ips}] os={OsName} {OsVersion} modules=[{Modules}]",
+            payload.CollectionId,
+            payload.CollectedAt,
+            host?.Hostname ?? "(unknown)",
+            host is not null ? string.Join(", ", host.IpAddresses) : "",
+            host?.OsName ?? "",
+            host?.OsVersion ?? "",
+            modules.Count > 0 ? string.Join(", ", modules) : "none");
     }
 }

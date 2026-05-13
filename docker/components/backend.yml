@@ -2,5 +2,5 @@ services:
   backend:
     image: ${DOCKER_REGISTRY:-policycollector-local}/policycollector-backend:${VERSION:-dev}
     build:
-      context: ../
+      context: ../../
       dockerfile: docker/Dockerfile

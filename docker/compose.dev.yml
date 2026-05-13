@@ -32,4 +32,4 @@ services:
     restart: unless-stopped
     ports: ["3000:3000"]
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8080
+      NEXT_PUBLIC_API_URL: http://103.109.187.252:8088

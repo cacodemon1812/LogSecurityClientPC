@@ -1,6 +1,5 @@
-using System.Security.Cryptography;
-using System.Text;
 using PolicyCollector.Backend.Api.Models;
+using PolicyCollector.Backend.Services;
 
 namespace PolicyCollector.Backend.Api.Middleware;
 
@@ -17,16 +16,43 @@ public sealed class ApiKeyMiddleware
 
     public async Task InvokeAsync(HttpContext ctx)
     {
-        if (ctx.Request.Path.StartsWithSegments("/health"))
+        var path = ctx.Request.Path.Value ?? "";
+
+        // Skip auth for health checks and UI auth endpoints
+        if (path.StartsWith("/health") || path.StartsWith("/api/v1/auth/"))
         {
             await _next(ctx);
             return;
         }
 
+        // Try Bearer JWT first (dashboard UI)
+        if (ctx.Request.Headers.TryGetValue("Authorization", out var authHeader))
+        {
+            var bearer = authHeader.ToString();
+            if (bearer.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                var token = bearer["Bearer ".Length..].Trim();
+                var jwt = ctx.RequestServices.GetRequiredService<JwtService>();
+                var principal = jwt.Validate(token);
+
+                if (principal is not null)
+                {
+                    ctx.Items["AuthedUser"] = principal;
+                    await _next(ctx);
+                    return;
+                }
+
+                ctx.Response.StatusCode = 401;
+                await ctx.Response.WriteAsJsonAsync(new ErrorResponse("Invalid or expired token"));
+                return;
+            }
+        }
+
+        // Fall back to API key (agent)
         if (!ctx.Request.Headers.TryGetValue("X-Api-Key", out var keyValues))
         {
             ctx.Response.StatusCode = 401;
-            await ctx.Response.WriteAsJsonAsync(new ErrorResponse("Missing X-Api-Key header"));
+            await ctx.Response.WriteAsJsonAsync(new ErrorResponse("Authentication required"));
             return;
         }
 
@@ -38,8 +64,6 @@ public sealed class ApiKeyMiddleware
             return;
         }
 
-        // For now, validate against environment API key (simple validation)
-        // In production, this would lookup from DB with rate limiting
         var configKey = ctx.RequestServices.GetRequiredService<IConfiguration>()
             .GetSection("Backend:ApiKey").Value;
 

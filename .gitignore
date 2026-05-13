@@ -11,3 +11,7 @@
 /.vs
 
 
+/src/PolicyCollector.Backend/bin
+/src/PolicyCollector.Dashboard/node_modules
+/src/PolicyCollector.Dashboard/.next
+*.tar

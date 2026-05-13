@@ -1,0 +1,6 @@
+services:
+  dashboard:
+    image: ${DOCKER_REGISTRY:-policycollector-local}/policycollector-dashboard:${VERSION:-dev}
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.dashboard

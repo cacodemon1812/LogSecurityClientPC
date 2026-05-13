@@ -78,20 +78,13 @@ services:
     depends_on:
       backend: { condition: service_healthy }
 
-  grafana:
-    image: grafana/grafana:latest
+  dashboard:
+    image: ${DOCKER_REGISTRY:-policycollector-local}/policycollector-dashboard:${VERSION:-dev}
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-devgrafana}
-      GF_INSTALL_PLUGINS: ""
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://backend:8080}
     depends_on:
-      postgres: { condition: service_healthy }
+      backend: { condition: service_healthy }
 
 volumes:
   pgdata:
   redisdata:
-  grafana_data:

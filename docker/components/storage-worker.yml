@@ -1,0 +1,6 @@
+services:
+  storage-worker:
+    image: ${DOCKER_REGISTRY:-policycollector-local}/policycollector-worker:${VERSION:-dev}
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.worker

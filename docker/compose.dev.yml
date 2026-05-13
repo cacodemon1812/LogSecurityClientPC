@@ -28,6 +28,8 @@ services:
   alert-worker:
     restart: unless-stopped
 
-  grafana:
+  dashboard:
     restart: unless-stopped
     ports: ["3000:3000"]
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080

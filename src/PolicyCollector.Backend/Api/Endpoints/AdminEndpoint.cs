@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using PolicyCollector.Backend.Data.Models;
 using PolicyCollector.Backend.Data.Repositories;
 
@@ -22,6 +22,14 @@ public static class AdminEndpoints
         group.MapGet("/stats", GetStats)
              .Produces(200)
              .WithName("GetStats");
+
+        group.MapGet("/security-overview", GetSecurityOverview)
+             .Produces(200)
+             .WithName("GetSecurityOverview");
+
+        group.MapGet("/patches", GetPatchStatus)
+             .Produces(200)
+             .WithName("GetPatchStatus");
     }
 
     private static async Task<IResult> GetRules(
@@ -58,6 +66,73 @@ public static class AdminEndpoints
             """);
 
         return Results.Ok(stats);
+    }
+
+    private static async Task<IResult> GetSecurityOverview(
+        IDbConnectionFactory db,
+        CancellationToken ct)
+    {
+        await using var conn = await db.OpenAsync(ct);
+        var rows = (await conn.QueryAsync("""
+            WITH latest AS (
+                SELECT DISTINCT ON (hostname) hostname, collected_at, payload
+                FROM collection_snapshots
+                ORDER BY hostname, collected_at DESC
+            )
+            SELECT
+                hostname,
+                collected_at,
+                (payload->'defender'->>'antivirus_enabled')::boolean           AS defender_enabled,
+                (payload->'defender'->>'real_time_protection')::boolean        AS real_time_protection,
+                (payload->'defender'->>'cloud_protection')::boolean            AS cloud_protection,
+                payload->'defender'->>'signature_version'                      AS signature_version,
+                jsonb_array_length(COALESCE(payload->'bitlocker','[]'::jsonb)) AS bitlocker_volume_count,
+                (payload->'hardware_security'->>'tpm_present')::boolean        AS tpm_present,
+                (payload->'hardware_security'->>'tpm_enabled')::boolean        AS tpm_enabled,
+                (payload->'hardware_security'->>'secure_boot_enabled')::boolean AS secure_boot_enabled,
+                (payload->'hardware_security'->>'uefi_mode')::boolean          AS uefi_mode,
+                (payload->'laps'->>'policy_configured')::boolean               AS laps_configured
+            FROM latest
+            ORDER BY hostname
+            """)).ToList();
+
+        return Results.Ok(new
+        {
+            total_hosts       = rows.Count,
+            defender_disabled = rows.Count(r => r.defender_enabled     == false),
+            rtprotection_off  = rows.Count(r => r.real_time_protection == false),
+            tpm_missing       = rows.Count(r => r.tpm_present          == false),
+            secure_boot_off   = rows.Count(r => r.secure_boot_enabled  == false),
+            laps_unconfigured = rows.Count(r => r.laps_configured      == false),
+            items             = rows
+        });
+    }
+
+    private static async Task<IResult> GetPatchStatus(
+        IDbConnectionFactory db,
+        CancellationToken ct)
+    {
+        await using var conn = await db.OpenAsync(ct);
+        var rows = await conn.QueryAsync("""
+            WITH latest AS (
+                SELECT DISTINCT ON (hostname) hostname, collected_at, payload
+                FROM collection_snapshots
+                ORDER BY hostname, collected_at DESC
+            )
+            SELECT
+                hostname,
+                collected_at,
+                (payload->'patch'->>'hotfix_count')::int        AS hotfix_count,
+                payload->'patch'->>'wsus_server'                AS wsus_server,
+                (payload->'patch'->>'no_auto_update')::boolean  AS no_auto_update,
+                (payload->'patch'->>'auto_update_options')::int AS auto_update_options,
+                payload->'patch'->>'last_success_install'       AS last_success_install,
+                payload->'patch'->>'last_success_detect'        AS last_success_detect
+            FROM latest
+            ORDER BY hostname
+            """);
+
+        return Results.Ok(new { items = rows });
     }
 }
 

@@ -46,13 +46,23 @@ builder.Services.AddSingleton<ConfigChangeRepository>();
 builder.Services.AddSingleton<ViolationRepository>();
 builder.Services.AddSingleton<PolicyRuleRepository>();
 builder.Services.AddSingleton<AppInventoryRepository>();
+builder.Services.AddSingleton<UserRepository>();
 
 // Services
 builder.Services.AddSingleton<DiffService>();
 builder.Services.AddSingleton<ViolationEngine>();
 builder.Services.AddSingleton<ComplianceReportService>();
+builder.Services.AddSingleton<JwtService>();
 builder.Services.AddHttpClient<AlertSender>();
 builder.Services.AddMemoryCache();
+
+// CORS — allow all origins (tighten in production via Backend:CorsOrigins)
+builder.Services.AddCors(options =>
+    options.AddPolicy("Dashboard", policy =>
+        policy.SetIsOriginAllowed(_ => true)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials()));
 
 if (!isWorkerOnly)
 {
@@ -94,11 +104,13 @@ if (!isWorkerOnly)
         throw new InvalidOperationException("Database migration failed", ex);
     }
 
+    app.UseCors("Dashboard");
     app.UseMiddleware<RequestLoggingMiddleware>();
     app.UseMiddleware<ApiKeyMiddleware>();
     app.UseMiddleware<HmacValidationMiddleware>();
     app.UseRateLimiter();
 
+    app.MapAuthEndpoints();
     app.MapIngestEndpoint();
     app.MapHostsEndpoints();
     app.MapDiffEndpoints();
@@ -106,6 +118,7 @@ if (!isWorkerOnly)
     app.MapInventoryEndpoints();
     app.MapReportEndpoints();
     app.MapAdminEndpoints();
+    app.MapUserManagementEndpoints();
     app.MapHealthChecks("/health");
     app.MapHealthChecks("/health/ready");
     app.MapHealthChecks("/health/live");

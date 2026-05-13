@@ -19,3 +19,8 @@ services:
     build:
       context: ../
       dockerfile: docker/Dockerfile.worker
+
+  dashboard:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.dashboard

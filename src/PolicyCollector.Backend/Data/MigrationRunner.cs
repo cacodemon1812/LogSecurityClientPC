@@ -13,6 +13,7 @@ public static class MigrationRunner
                 Assembly.GetExecutingAssembly(),
                 s => s.Contains("Migrations") && s.EndsWith(".sql"))
             .WithTransactionPerScript()
+            .WithVariablesDisabled()
             .LogToConsole()
             .Build();
 

@@ -150,19 +150,32 @@ public sealed class SecurityPolicyCollector : ICollector<SecPolicyResult>
         string? detailedTracking = null;
         string? objectAccess = null;
         string? policyChange = null;
+        string? privilegeUse = null;
+        string? dsAccess = null;
+        string? system = null;
+        var subcategories = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         try
         {
+            // auditpol CSV columns (0-based):
+            //  0: Machine Name, 1: Category Name, 2: Subcategory Name,
+            //  3: Subcategory GUID, 4: Inclusion Setting, 5: Exclusion Setting
             foreach (var line in csvOutput.Split('\n').Skip(1))
             {
                 var parts = line.Split(',');
                 if (parts.Length < 5) continue;
 
-                var category = parts[1].Trim().Trim('"');
-                var setting  = parts[4].Trim().Trim('"');
+                var category    = parts[1].Trim().Trim('"');
+                var subcategory = parts[2].Trim().Trim('"');
+                var setting     = parts[4].Trim().Trim('"');
 
                 if (string.IsNullOrEmpty(setting)) continue;
 
+                // Collect every subcategory for full fidelity
+                if (!string.IsNullOrEmpty(subcategory))
+                    subcategories.TryAdd(subcategory, setting);
+
+                // Roll up category-level summary (first non-empty value per category)
                 if (category.Contains("Logon/Logoff", StringComparison.OrdinalIgnoreCase) && logonLogoff is null)
                     logonLogoff = setting;
                 else if (category.Contains("Account Logon", StringComparison.OrdinalIgnoreCase) && accountLogon is null)
@@ -175,6 +188,12 @@ public sealed class SecurityPolicyCollector : ICollector<SecPolicyResult>
                     objectAccess = setting;
                 else if (category.Contains("Policy Change", StringComparison.OrdinalIgnoreCase) && policyChange is null)
                     policyChange = setting;
+                else if (category.Contains("Privilege Use", StringComparison.OrdinalIgnoreCase) && privilegeUse is null)
+                    privilegeUse = setting;
+                else if (category.Contains("DS Access", StringComparison.OrdinalIgnoreCase) && dsAccess is null)
+                    dsAccess = setting;
+                else if (category.Contains("System", StringComparison.OrdinalIgnoreCase) && system is null)
+                    system = setting;
             }
         }
         catch (Exception ex)
@@ -184,12 +203,16 @@ public sealed class SecurityPolicyCollector : ICollector<SecPolicyResult>
 
         return new AuditPolicy
         {
-            LogonLogoff        = logonLogoff,
-            AccountLogon       = accountLogon,
-            AccountManagement  = accountManagement,
-            DetailedTracking   = detailedTracking,
-            ObjectAccess       = objectAccess,
-            PolicyChange       = policyChange
+            LogonLogoff       = logonLogoff,
+            AccountLogon      = accountLogon,
+            AccountManagement = accountManagement,
+            DetailedTracking  = detailedTracking,
+            ObjectAccess      = objectAccess,
+            PolicyChange      = policyChange,
+            PrivilegeUse      = privilegeUse,
+            DsAccess          = dsAccess,
+            System            = system,
+            Subcategories     = subcategories.Count > 0 ? subcategories : null
         };
     }
 

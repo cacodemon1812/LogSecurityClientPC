@@ -232,7 +232,14 @@ if (-not (Test-Path $configDest)) {
       "ScheduledTasks": true,
       "StartupEntries": true,
       "ActiveDirectory": true,
-      "RegistryAudit": true
+      "RegistryAudit": true,
+      "Patch": true,
+      "LocalAccounts": true,
+      "SharedFolders": true,
+      "HardwareSecurity": true,
+      "EventLogSettings": true,
+      "RemoteAccess": true,
+      "LAPS": true
     }
   },
   "Transport": {

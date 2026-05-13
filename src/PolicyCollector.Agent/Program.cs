@@ -57,6 +57,13 @@ builder.Services.AddSingleton<ICollector<List<TaskEntry>>, ScheduledTaskCollecto
 builder.Services.AddSingleton<ICollector<List<StartupEntry>>, StartupCollector>();
 builder.Services.AddSingleton<ICollector<AdInfo>, AdCollector>();
 builder.Services.AddSingleton<ICollector<RegistryAuditResult>, RegistryAuditCollector>();
+builder.Services.AddSingleton<ICollector<PatchStatus>, PatchCollector>();
+builder.Services.AddSingleton<ICollector<LocalAccountsResult>, LocalAccountCollector>();
+builder.Services.AddSingleton<ICollector<SharedFoldersResult>, SharedFolderCollector>();
+builder.Services.AddSingleton<ICollector<HardwareSecurity>, HardwareSecurityCollector>();
+builder.Services.AddSingleton<ICollector<EventLogSettings>, EventLogSettingsCollector>();
+builder.Services.AddSingleton<ICollector<RemoteAccessResult>, RemoteAccessCollector>();
+builder.Services.AddSingleton<ICollector<LapsResult>, LapsCollector>();
 
 // Jobs and Services
 builder.Services.AddSingleton<CollectionJob>();

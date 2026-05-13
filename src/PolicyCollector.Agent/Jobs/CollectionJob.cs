@@ -20,6 +20,13 @@ public sealed class CollectionJob
     private readonly ICollector<List<StartupEntry>> _startupCollector;
     private readonly ICollector<AdInfo> _adCollector;
     private readonly ICollector<RegistryAuditResult> _registryAuditCollector;
+    private readonly ICollector<PatchStatus> _patchCollector;
+    private readonly ICollector<LocalAccountsResult> _localAccountCollector;
+    private readonly ICollector<SharedFoldersResult> _sharedFolderCollector;
+    private readonly ICollector<HardwareSecurity> _hardwareSecurityCollector;
+    private readonly ICollector<EventLogSettings> _eventLogSettingsCollector;
+    private readonly ICollector<RemoteAccessResult> _remoteAccessCollector;
+    private readonly ICollector<LapsResult> _lapsCollector;
     private readonly ILogger<CollectionJob> _logger;
 
     public CollectionJob(
@@ -37,6 +44,13 @@ public sealed class CollectionJob
         ICollector<List<StartupEntry>> startupCollector,
         ICollector<AdInfo> adCollector,
         ICollector<RegistryAuditResult> registryAuditCollector,
+        ICollector<PatchStatus> patchCollector,
+        ICollector<LocalAccountsResult> localAccountCollector,
+        ICollector<SharedFoldersResult> sharedFolderCollector,
+        ICollector<HardwareSecurity> hardwareSecurityCollector,
+        ICollector<EventLogSettings> eventLogSettingsCollector,
+        ICollector<RemoteAccessResult> remoteAccessCollector,
+        ICollector<LapsResult> lapsCollector,
         ILogger<CollectionJob> logger)
     {
         _options = options;
@@ -53,6 +67,13 @@ public sealed class CollectionJob
         _startupCollector = startupCollector;
         _adCollector = adCollector;
         _registryAuditCollector = registryAuditCollector;
+        _patchCollector = patchCollector;
+        _localAccountCollector = localAccountCollector;
+        _sharedFolderCollector = sharedFolderCollector;
+        _hardwareSecurityCollector = hardwareSecurityCollector;
+        _eventLogSettingsCollector = eventLogSettingsCollector;
+        _remoteAccessCollector = remoteAccessCollector;
+        _lapsCollector = lapsCollector;
         _logger = logger;
     }
 
@@ -80,6 +101,13 @@ public sealed class CollectionJob
         List<StartupEntry>? startupEntries = null;
         AdInfo? activeDirectory = null;
         RegistryAuditResult? registryAudit = null;
+        PatchStatus? patch = null;
+        LocalAccountsResult? localAccounts = null;
+        SharedFoldersResult? sharedFolders = null;
+        HardwareSecurity? hardwareSecurity = null;
+        EventLogSettings? eventLogSettings = null;
+        RemoteAccessResult? remoteAccess = null;
+        LapsResult? laps = null;
 
         var hostTask = RunCollector(_hostCollector, timeout, cts.Token)
             .ContinueWith(t => hostInfo = t.Result?.Data, TaskContinuationOptions.OnlyOnRanToCompletion);
@@ -169,6 +197,55 @@ public sealed class CollectionJob
             tasks.Add(t);
         }
 
+        if (modules.Patch)
+        {
+            var t = RunCollector(_patchCollector, timeout, cts.Token)
+                .ContinueWith(r => patch = r.Result?.Data, TaskContinuationOptions.OnlyOnRanToCompletion);
+            tasks.Add(t);
+        }
+
+        if (modules.LocalAccounts)
+        {
+            var t = RunCollector(_localAccountCollector, timeout, cts.Token)
+                .ContinueWith(r => localAccounts = r.Result?.Data, TaskContinuationOptions.OnlyOnRanToCompletion);
+            tasks.Add(t);
+        }
+
+        if (modules.SharedFolders)
+        {
+            var t = RunCollector(_sharedFolderCollector, timeout, cts.Token)
+                .ContinueWith(r => sharedFolders = r.Result?.Data, TaskContinuationOptions.OnlyOnRanToCompletion);
+            tasks.Add(t);
+        }
+
+        if (modules.HardwareSecurity)
+        {
+            var t = RunCollector(_hardwareSecurityCollector, timeout, cts.Token)
+                .ContinueWith(r => hardwareSecurity = r.Result?.Data, TaskContinuationOptions.OnlyOnRanToCompletion);
+            tasks.Add(t);
+        }
+
+        if (modules.EventLogSettings)
+        {
+            var t = RunCollector(_eventLogSettingsCollector, timeout, cts.Token)
+                .ContinueWith(r => eventLogSettings = r.Result?.Data, TaskContinuationOptions.OnlyOnRanToCompletion);
+            tasks.Add(t);
+        }
+
+        if (modules.RemoteAccess)
+        {
+            var t = RunCollector(_remoteAccessCollector, timeout, cts.Token)
+                .ContinueWith(r => remoteAccess = r.Result?.Data, TaskContinuationOptions.OnlyOnRanToCompletion);
+            tasks.Add(t);
+        }
+
+        if (modules.LAPS)
+        {
+            var t = RunCollector(_lapsCollector, timeout, cts.Token)
+                .ContinueWith(r => laps = r.Result?.Data, TaskContinuationOptions.OnlyOnRanToCompletion);
+            tasks.Add(t);
+        }
+
         try
         {
             await Task.WhenAll(tasks);
@@ -191,7 +268,14 @@ public sealed class CollectionJob
             scheduledTasks,
             startupEntries,
             activeDirectory,
-            registryAudit);
+            registryAudit,
+            patch,
+            localAccounts,
+            sharedFolders,
+            hardwareSecurity,
+            eventLogSettings,
+            remoteAccess,
+            laps);
 
         _logger.LogInformation("Collection cycle completed in {Duration}ms",
             (DateTimeOffset.UtcNow - startTime).TotalMilliseconds);

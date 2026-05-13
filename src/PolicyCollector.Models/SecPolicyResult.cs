@@ -36,6 +36,7 @@ public sealed class AuditPolicy
     [JsonPropertyName("policy_change")] public string? PolicyChange { get; init; }
     [JsonPropertyName("privilege_use")] public string? PrivilegeUse { get; init; }
     [JsonPropertyName("system")] public string? System { get; init; }
+    [JsonPropertyName("subcategories")] public Dictionary<string, string>? Subcategories { get; init; }
 }
 
 public sealed class UacConfig

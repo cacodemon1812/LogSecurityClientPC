@@ -55,6 +55,27 @@ public sealed class CollectionPayload
     [JsonPropertyName("registry_audit")]
     public RegistryAuditResult? RegistryAudit { get; init; }
 
+    [JsonPropertyName("patch")]
+    public PatchStatus? Patch { get; init; }
+
+    [JsonPropertyName("local_accounts")]
+    public LocalAccountsResult? LocalAccounts { get; init; }
+
+    [JsonPropertyName("shared_folders")]
+    public SharedFoldersResult? SharedFolders { get; init; }
+
+    [JsonPropertyName("hardware_security")]
+    public HardwareSecurity? HardwareSecurity { get; init; }
+
+    [JsonPropertyName("event_log_settings")]
+    public EventLogSettings? EventLogSettings { get; init; }
+
+    [JsonPropertyName("remote_access")]
+    public RemoteAccessResult? RemoteAccess { get; init; }
+
+    [JsonPropertyName("laps")]
+    public LapsResult? Laps { get; init; }
+
     private static string GetAgentVersion() =>
         typeof(CollectionPayload).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 }

@@ -22,4 +22,11 @@ public sealed class ModuleOptions
     public bool StartupEntries { get; init; } = true;
     public bool ActiveDirectory { get; init; } = true;
     public bool RegistryAudit { get; init; } = true;
+    public bool Patch { get; init; } = true;
+    public bool LocalAccounts { get; init; } = true;
+    public bool SharedFolders { get; init; } = true;
+    public bool HardwareSecurity { get; init; } = true;
+    public bool EventLogSettings { get; init; } = true;
+    public bool RemoteAccess { get; init; } = true;
+    public bool LAPS { get; init; } = true;
 }

@@ -38,6 +38,31 @@ interface CollectionPayload {
     uac?: { enabled: boolean; consent_prompt_level: number; secure_desktop: boolean };
     tls?: { protocols?: { SSL_2_0?: boolean; SSL_3_0?: boolean; TLS_1_0?: boolean; TLS_1_1?: boolean; TLS_1_2?: boolean; TLS_1_3?: boolean } };
     rdp?: { enabled: boolean; nla_required: boolean; port: number; session_timeout_min: number; disconnect_timeout_min: number };
+    security_options?: {
+      lm_compatibility_level?: number | null;
+      no_lm_hash?: boolean | null;
+      restrict_anonymous?: number | null;
+      restrict_anonymous_sam?: boolean | null;
+      wdigest_enabled?: boolean | null;
+      lsa_ppl_enabled?: boolean | null;
+      smb_client_signing_required?: boolean | null;
+      smb_client_signing_enabled?: boolean | null;
+      smb_server_signing_required?: boolean | null;
+      smb_server_signing_enabled?: boolean | null;
+      local_account_uac_filter?: boolean | null;
+      restricted_admin_disabled?: boolean | null;
+      vbs_enabled?: boolean | null;
+      disable_domain_creds?: boolean | null;
+    };
+  };
+  wifi?: {
+    profiles?: Array<{
+      ssid?: string; authentication?: string; cipher?: string;
+      risk_level?: string; is_connected: boolean;
+    }>;
+    active_connections?: Array<{ interface_alias?: string; network_name?: string; category?: string }>;
+    has_insecure_profile: boolean;
+    insecure_ssids?: string[];
   };
   firewall?: {
     profiles?: Record<string, { enabled: boolean; inbound?: string; outbound?: string }>;
@@ -322,6 +347,7 @@ function PolicyTab({ payload }: { payload: CollectionPayload }) {
   const uac = sp?.uac;
   const tls = sp?.tls?.protocols;
   const audit = sp?.audit_policy?.subcategories;
+  const secOpts = sp?.security_options;
   const [showAllAudit, setShowAllAudit] = useState(false);
   const [showAllRights, setShowAllRights] = useState(false);
 
@@ -393,6 +419,33 @@ function PolicyTab({ payload }: { payload: CollectionPayload }) {
           )}
         </CardContent>
       </Card>
+
+      {secOpts && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Key className="h-4 w-4" />Security Options (Local Policies)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <InfoRow label="LM Auth Level" value={
+              <span className={secOpts.lm_compatibility_level != null && secOpts.lm_compatibility_level < 3 ? "text-destructive font-semibold" : ""}>
+                {secOpts.lm_compatibility_level != null ? `${secOpts.lm_compatibility_level} (${["Send LM & NTLM","Send LM & NTLM — use NTLMv2 if negotiated","Send LM & NTLM only","Send NTLMv2 only","Send NTLMv2 only, refuse LM","Send NTLMv2 only, refuse LM & NTLM"][secOpts.lm_compatibility_level] ?? "?"})` : "—"}
+              </span>
+            } />
+            <InfoRow label="WDigest cleartext creds" value={<span className="flex items-center gap-1 justify-end"><BoolIcon value={secOpts.wdigest_enabled} invert />{secOpts.wdigest_enabled ? <span className="text-destructive font-semibold">BẬT — nguy hiểm</span> : "Tắt"}</span>} />
+            <InfoRow label="LSA Protection (PPL)" value={<span className="flex items-center gap-1 justify-end"><BoolIcon value={secOpts.lsa_ppl_enabled} />{secOpts.lsa_ppl_enabled ? "Bật" : <span className="text-amber-600">Tắt</span>}</span>} />
+            <InfoRow label="No LM Hash" value={<span className="flex items-center gap-1 justify-end"><BoolIcon value={secOpts.no_lm_hash} />{secOpts.no_lm_hash ? "Có" : "Không"}</span>} />
+            <InfoRow label="Restrict Anonymous" value={secOpts.restrict_anonymous != null ? String(secOpts.restrict_anonymous) : undefined} />
+            <InfoRow label="SMB Client signing required" value={<span className="flex items-center gap-1 justify-end"><BoolIcon value={secOpts.smb_client_signing_required} />{secOpts.smb_client_signing_required ? "Có" : <span className="text-amber-600">Không</span>}</span>} />
+            <InfoRow label="SMB Server signing required" value={<span className="flex items-center gap-1 justify-end"><BoolIcon value={secOpts.smb_server_signing_required} />{secOpts.smb_server_signing_required ? "Có" : <span className="text-amber-600">Không</span>}</span>} />
+            <InfoRow label="Remote UAC filter" value={<span className="flex items-center gap-1 justify-end"><BoolIcon value={secOpts.local_account_uac_filter} invert />{secOpts.local_account_uac_filter ? <span className="text-destructive">Bypass (= 1)</span> : "Bình thường (= 0)"}</span>} />
+            <InfoRow label="RDP Restricted Admin" value={<span className="flex items-center gap-1 justify-end"><BoolIcon value={secOpts.restricted_admin_disabled} invert />{secOpts.restricted_admin_disabled ? <span className="text-destructive">Tắt (nguy hiểm)</span> : "Bật"}</span>} />
+            <InfoRow label="VBS (Virt. Based Security)" value={<span className="flex items-center gap-1 justify-end"><BoolIcon value={secOpts.vbs_enabled} />{secOpts.vbs_enabled ? "Bật" : "Tắt"}</span>} />
+            <InfoRow label="Disable domain creds" value={<span className="flex items-center gap-1 justify-end"><BoolIcon value={secOpts.disable_domain_creds} />{secOpts.disable_domain_creds ? "Có" : "Không"}</span>} />
+          </CardContent>
+        </Card>
+      )}
 
       {audit && (
         <Card>
@@ -1362,6 +1415,149 @@ function PatchTab({ payload }: { payload: CollectionPayload }) {
   );
 }
 
+// ── Tab: WiFi ─────────────────────────────────────────────────────────────────
+
+const WIFI_RISK_STYLE: Record<string, string> = {
+  critical: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border border-red-300 dark:border-red-700",
+  high:     "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-300 dark:border-orange-700",
+  medium:   "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-700",
+  safe:     "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-300 dark:border-green-700",
+};
+
+function WifiRiskBadge({ level }: { level?: string }) {
+  const l = level ?? "unknown";
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold uppercase ${WIFI_RISK_STYLE[l] ?? "bg-muted text-muted-foreground"}`}>
+      {l === "safe" ? "An toàn" : l === "critical" ? "Nguy hiểm" : l === "high" ? "Cao" : l === "medium" ? "Trung bình" : l}
+    </span>
+  );
+}
+
+function WiFiTab({ payload }: { payload: CollectionPayload }) {
+  const wifi = payload.wifi;
+  const profiles = wifi?.profiles ?? [];
+  const connections = wifi?.active_connections ?? [];
+  const insecureCount = profiles.filter(p => p.risk_level === "critical" || p.risk_level === "high").length;
+
+  if (!wifi) return <Card><CardContent className="pt-4"><EmptyMsg msg="Không có dữ liệu WiFi — adapter có thể bị tắt hoặc dịch vụ WLAN chưa chạy" /></CardContent></Card>;
+
+  return (
+    <div className="space-y-4">
+      {/* Summary strip */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <Card><CardContent className="pt-4 pb-3">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Tổng profile</p>
+          <p className="text-2xl font-bold mt-1">{profiles.length}</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-4 pb-3">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Profile không an toàn</p>
+          <p className={`text-2xl font-bold mt-1 ${insecureCount > 0 ? "text-destructive" : "text-green-600"}`}>{insecureCount}</p>
+        </CardContent></Card>
+        <Card><CardContent className="pt-4 pb-3">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Đang kết nối</p>
+          <p className="text-2xl font-bold mt-1">{connections.length}</p>
+        </CardContent></Card>
+      </div>
+
+      {/* Alert banner for insecure connected profiles */}
+      {profiles.some(p => (p.risk_level === "critical" || p.risk_level === "high") && p.is_connected) && (
+        <Card className="border-destructive">
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-start gap-2 text-sm text-destructive">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <div>
+                <span className="font-semibold">Đang kết nối với WiFi không an toàn: </span>
+                {profiles.filter(p => (p.risk_level === "critical" || p.risk_level === "high") && p.is_connected).map(p => p.ssid).join(", ")}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Profile table */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Network className="h-4 w-4" />
+            WiFi Profiles ({profiles.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {profiles.length === 0 ? <div className="px-4 pb-4 pt-2"><EmptyMsg msg="Không có WiFi profile nào được lưu" /></div> : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b bg-muted/30">
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">SSID</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Xác thực</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Mã hóa</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Mức độ rủi ro</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Trạng thái</th>
+                </tr></thead>
+                <tbody>
+                  {profiles.map((p, i) => {
+                    const insecure = p.risk_level === "critical" || p.risk_level === "high";
+                    return (
+                      <tr key={i} className={`border-b last:border-0 ${insecure ? "bg-red-50/40 dark:bg-red-950/10" : ""}`}>
+                        <td className="px-4 py-2 font-medium font-mono">{p.ssid ?? "—"}</td>
+                        <td className="px-4 py-2 text-muted-foreground">{p.authentication ?? "—"}</td>
+                        <td className="px-4 py-2 text-muted-foreground">{p.cipher ?? "—"}</td>
+                        <td className="px-4 py-2"><WifiRiskBadge level={p.risk_level} /></td>
+                        <td className="px-4 py-2">
+                          {p.is_connected
+                            ? <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-400"><CheckCircle2 className="h-3 w-3" />Đang kết nối</span>
+                            : <span className="text-xs text-muted-foreground">Đã lưu</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Active network connections */}
+      {connections.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Kết nối mạng đang hoạt động</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b bg-muted/30">
+                <th className="px-4 py-2 text-left font-medium text-muted-foreground">Tên mạng</th>
+                <th className="px-4 py-2 text-left font-medium text-muted-foreground">Interface</th>
+                <th className="px-4 py-2 text-left font-medium text-muted-foreground">Phân loại</th>
+              </tr></thead>
+              <tbody>
+                {connections.map((c, i) => (
+                  <tr key={i} className="border-b last:border-0">
+                    <td className="px-4 py-2 font-medium">{c.network_name ?? "—"}</td>
+                    <td className="px-4 py-2 text-muted-foreground font-mono text-xs">{c.interface_alias ?? "—"}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{c.category ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Security standard note */}
+      <Card>
+        <CardContent className="pt-4 pb-3">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">Tiêu chuẩn tối thiểu:</span>{" "}
+            WPA2 + CCMP (AES). Bất kỳ profile nào dùng Open, WEP hoặc WPA (v1) đều vi phạm
+            chính sách bảo mật và tạo ra rule <code className="font-mono bg-muted px-1 rounded">wifi.insecure_profile</code>.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function HostDetailPage() {
@@ -1469,6 +1665,12 @@ export default function HostDetailPage() {
                 </span>
               </TabsTrigger>
               <TabsTrigger value="patch">Bản vá</TabsTrigger>
+              <TabsTrigger value="wifi">
+                <span className="flex items-center gap-1">
+                  WiFi
+                  {payload.wifi?.has_insecure_profile && <XCircle className="h-3 w-3 text-destructive" />}
+                </span>
+              </TabsTrigger>
               <TabsTrigger value="diff">Thay đổi</TabsTrigger>
             </TabsList>
 
@@ -1484,6 +1686,7 @@ export default function HostDetailPage() {
             <TabsContent value="system"><SystemTab payload={payload} /></TabsContent>
             <TabsContent value="registry"><RegistryTab payload={payload} /></TabsContent>
             <TabsContent value="patch"><PatchTab payload={payload} /></TabsContent>
+            <TabsContent value="wifi"><WiFiTab payload={payload} /></TabsContent>
             <TabsContent value="diff"><DiffTab hostId={hostId} /></TabsContent>
           </Tabs>
         </>

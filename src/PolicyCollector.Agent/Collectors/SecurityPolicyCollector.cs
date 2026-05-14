@@ -60,12 +60,13 @@ public sealed class SecurityPolicyCollector : ICollector<SecPolicyResult>
 
                 var result = new SecPolicyResult
                 {
-                    PasswordPolicy = seceditOk  ? ParsePasswordPolicy(tempInf)          : new PasswordPolicy(),
-                    UserRights     = seceditOk  ? ParseUserRights(tempInf)               : [],
-                    AuditPolicy    = auditpolOk ? ParseAuditPolicy(auditpolTask.Result.Stdout) : new AuditPolicy(),
-                    Uac            = ReadUacFromRegistry(),
-                    Tls            = ReadTlsFromRegistry(),
-                    Rdp            = ReadRdpFromRegistry()
+                    PasswordPolicy  = seceditOk  ? ParsePasswordPolicy(tempInf)               : new PasswordPolicy(),
+                    UserRights      = seceditOk  ? ParseUserRights(tempInf)                    : [],
+                    AuditPolicy     = auditpolOk ? ParseAuditPolicy(auditpolTask.Result.Stdout) : new AuditPolicy(),
+                    Uac             = ReadUacFromRegistry(),
+                    Tls             = ReadTlsFromRegistry(),
+                    Rdp             = ReadRdpFromRegistry(),
+                    SecurityOptions = ReadSecurityOptionsFromRegistry()
                 };
 
                 return CollectorResult<SecPolicyResult>.Ok(result, sw.Elapsed);
@@ -290,6 +291,43 @@ public sealed class SecurityPolicyCollector : ICollector<SecPolicyResult>
         {
             _logger.LogWarning(ex, "Failed to read RDP config");
             return new RdpConfig();
+        }
+    }
+
+    private SecurityOptions ReadSecurityOptionsFromRegistry()
+    {
+        try
+        {
+            const string lsa        = @"SYSTEM\CurrentControlSet\Control\Lsa";
+            const string wdigest    = @"SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest";
+            const string lanClient  = @"SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters";
+            const string lanServer  = @"SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters";
+            const string policies   = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System";
+            const string deviceGuard= @"SYSTEM\CurrentControlSet\Control\DeviceGuard";
+            var hklm = RegistryHive.LocalMachine;
+
+            return new SecurityOptions
+            {
+                LmCompatibilityLevel     = (int?)_registry.GetDword(hklm, lsa, "LmCompatibilityLevel"),
+                NoLmHash                 = _registry.GetDword(hklm, lsa, "NoLMHash") == 1,
+                RestrictAnonymous        = (int?)_registry.GetDword(hklm, lsa, "RestrictAnonymous"),
+                RestrictAnonymousSam     = _registry.GetDword(hklm, lsa, "RestrictAnonymousSAM") == 1,
+                WdigestEnabled           = _registry.GetDword(hklm, wdigest, "UseLogonCredential") == 1,
+                LsaPplEnabled            = _registry.GetDword(hklm, lsa, "RunAsPPL") == 1,
+                SmbClientSigningRequired = _registry.GetDword(hklm, lanClient, "RequireSecuritySignature") == 1,
+                SmbClientSigningEnabled  = _registry.GetDword(hklm, lanClient, "EnableSecuritySignature") == 1,
+                SmbServerSigningRequired = _registry.GetDword(hklm, lanServer, "RequireSecuritySignature") == 1,
+                SmbServerSigningEnabled  = _registry.GetDword(hklm, lanServer, "EnableSecuritySignature") == 1,
+                LocalAccountUacFilter    = _registry.GetDword(hklm, policies, "LocalAccountTokenFilterPolicy") == 1,
+                RestrictedAdminDisabled  = _registry.GetDword(hklm, lsa, "DisableRestrictedAdmin") == 1,
+                VbsEnabled               = _registry.GetDword(hklm, deviceGuard, "EnableVirtualizationBasedSecurity") == 1,
+                DisableDomainCreds       = _registry.GetDword(hklm, lsa, "DisableDomainCreds") == 1,
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to read Security Options from registry");
+            return new SecurityOptions();
         }
     }
 

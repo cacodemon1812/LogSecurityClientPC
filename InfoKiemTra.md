@@ -29,6 +29,8 @@
 | 17 | EventLogSettings | PowerShell (`Get-WinEvent -ListLog`) + Registry WEF | Admin |
 | 18 | RemoteAccess | WMI `Win32_Service` + Registry | User |
 | 19 | LAPS | Registry | User |
+| 20 | EndpointProtection | WMI `root\SecurityCenter2` + Registry `KasperskyLab` | User |
+| 21 | WiFi | Process (`netsh.exe`) + PowerShell | Admin |
 
 ---
 
@@ -88,27 +90,135 @@ auditpol.exe /get /category:* /r
 
 **Ghi chú:** `secedit` và `auditpol` yêu cầu Admin — thiếu quyền → trả về object rỗng + log Warning.
 
+#### 2a. Security Options (Local Security Policy → Security Settings → Local Policies → Security Options)
+
+Các setting quan trọng được đọc qua registry; tên hiển thị trong `secpol.msc` ghi kèm để đối chiếu:
+
+| Registry key (HKLM) | Value name | Tên trong secpol.msc | Giá trị an toàn |
+|---------------------|------------|----------------------|-----------------|
+| `SYSTEM\CurrentControlSet\Control\Lsa` | `LmCompatibilityLevel` | Network security: LAN Manager authentication level | ≥ 3 (NTLMv2 only) |
+| `SYSTEM\CurrentControlSet\Control\Lsa` | `NoLMHash` | Network security: Do not store LAN Manager hash value on next password change | 1 |
+| `SYSTEM\CurrentControlSet\Control\Lsa` | `RestrictAnonymous` | Network access: Do not allow anonymous enumeration of SAM accounts and shares | 2 |
+| `SYSTEM\CurrentControlSet\Control\Lsa` | `RestrictAnonymousSAM` | Network access: Do not allow anonymous enumeration of SAM accounts | 1 |
+| `SYSTEM\CurrentControlSet\Control\Lsa` | `DisableDomainCreds` | Network access: Do not allow storage of passwords and credentials for network authentication | 1 |
+| `SYSTEM\CurrentControlSet\Control\Lsa` | `RunAsPPL` | Local Security Authority (LSA) protection | 1 |
+| `SYSTEM\CurrentControlSet\Control\Lsa` | `DisableRestrictedAdmin` | Remote Desktop Services: Restricted Admin mode | 0 (Restricted Admin enabled) |
+| `SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest` | `UseLogonCredential` | WDigest Authentication (không cleartext) | 0 |
+| `SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters` | `RequireSecuritySignature` | Microsoft network client: Digitally sign communications (always) | 1 |
+| `SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters` | `EnableSecuritySignature` | Microsoft network client: Digitally sign communications (if server agrees) | 1 |
+| `SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters` | `RequireSecuritySignature` | Microsoft network server: Digitally sign communications (always) | 1 |
+| `SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters` | `EnableSecuritySignature` | Microsoft network server: Digitally sign communications (if client agrees) | 1 |
+| `SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System` | `EnableLUA` | User Account Control: Run all administrators in Admin Approval Mode | 1 |
+| `SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System` | `ConsentPromptBehaviorAdmin` | UAC: Behavior of elevation prompt for administrators | 2 (prompt for creds on secure desktop) |
+| `SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System` | `PromptOnSecureDesktop` | UAC: Switch to secure desktop when prompting for elevation | 1 |
+| `SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System` | `LocalAccountTokenFilterPolicy` | Remote UAC token filter | 0 (không bypass UAC từ xa) |
+| `SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon` | `AutoAdminLogon` | Interactive logon: auto-logon | 0 |
+| `SYSTEM\CurrentControlSet\Control\DeviceGuard` | `EnableVirtualizationBasedSecurity` | Virtualization Based Security | 1 |
+
+#### 2b. Cấu hình Audit quan trọng (Advanced Audit Policy)
+
+Điều kiện tiên quyết: `HKLM\SYSTEM\CurrentControlSet\Control\Lsa\SCENoApplyLegacyAuditPolicy = 1` — bắt buộc để subcategory audit (auditpol) ghi đè category-level setting của Group Policy.
+
+| Category | Subcategory | GUID | Cấu hình tối thiểu |
+|----------|-------------|------|---------------------|
+| Account Logon | Credential Validation | `{0CCE923F-…}` | Success + Failure |
+| Account Logon | Kerberos Authentication Service | `{0CCE9242-…}` | Success + Failure |
+| Logon/Logoff | Logon | `{0CCE9215-…}` | Success + Failure |
+| Logon/Logoff | Account Lockout | `{0CCE9217-…}` | Failure |
+| Logon/Logoff | Special Logon | `{0CCE921B-…}` | Success |
+| Detailed Tracking | Process Creation (Event 4688) | `{0CCE922B-…}` | Success |
+| Account Management | User Account Management | `{0CCE9235-…}` | Success + Failure |
+| Account Management | Security Group Management | `{0CCE9237-…}` | Success + Failure |
+| Account Management | Computer Account Management | `{0CCE9236-…}` | Success + Failure |
+| Policy Change | Audit Policy Change | `{0CCE922F-…}` | Success |
+| Policy Change | Authentication Policy Change | `{0CCE9230-…}` | Success |
+| Privilege Use | Sensitive Privilege Use | `{0CCE9228-…}` | Success + Failure |
+| System | Security State Change | `{0CCE9210-…}` | Success + Failure |
+| System | Security System Extension | `{0CCE9211-…}` | Success |
+| Object Access | File System | `{0CCE921D-…}` | Failure (nếu có file server) |
+
+**Cách đọc trong code:** `auditpol /get /category:* /r` → xuất CSV, cột `Inclusion Setting` = `Success`, `Failure`, `Success and Failure`, `No Auditing`. Parse vào dictionary `SubcategoryName → InclusionSetting`.
+
+**Violation rule gợi ý:** `audit.credential_validation_not_audited` — khi `InclusionSetting` của Credential Validation không bao gồm `Failure`.
+
 ---
 
-### 3. Firewall — Windows Firewall
+### 3. Firewall — Windows Firewall + Listening Ports + Risky Ports
 
-**Mục tiêu:** Trạng thái profile, danh sách rule đang enabled.
+**Mục tiêu:** Trạng thái profile, danh sách rule, port đang lắng nghe, và phát hiện port nguy hiểm đang bị phơi bày.
 
 **Script / Lệnh (PowerShell):**
-```powershell
-Get-NetFirewallProfile | Select-Object Name, Enabled, DefaultInboundAction, DefaultOutboundAction | ConvertTo-Json -Compress
 
-Get-NetFirewallRule | Where-Object { $_.Enabled -eq $true } |
-    Select-Object -First 500 Name, DisplayName, Direction, Action, Enabled, Profile, Description |
+```powershell
+# 1. Profiles — KHÔNG dùng ConvertTo-Json; đọc PSObject.Properties trực tiếp
+Get-NetFirewallProfile | Select-Object Name, Enabled, DefaultInboundAction, DefaultOutboundAction
+
+# 2. Rules — dùng ConvertTo-Json → JsonDocument.Parse; join với port/app filter
+$rules = Get-NetFirewallRule | Where-Object { $_.Enabled -eq $true } |
+    Select-Object -First 500 Name, DisplayName, Direction, Action, Enabled, Profile, Description, InstanceID |
     ConvertTo-Json -Compress
 
+# 3. Port filter — join theo InstanceID lấy Protocol, LocalPort, RemotePort
+Get-NetFirewallPortFilter | Select-Object InstanceID, Protocol, LocalPort, RemotePort | ConvertTo-Json -Compress
+
+# 4. Application filter — join theo InstanceID lấy đường dẫn chương trình
+Get-NetFirewallApplicationFilter | Select-Object InstanceID, Program | ConvertTo-Json -Compress
+
+# 5. TCP listening ports
+Get-NetTCPConnection -State Listen |
+    Select-Object LocalAddress, LocalPort, OwningProcess | ConvertTo-Json -Compress
+
+# 6. UDP listening ports
+Get-NetUDPEndpoint |
+    Select-Object LocalAddress, LocalPort, OwningProcess | ConvertTo-Json -Compress
+
+# 7. Tổng số rule
 Get-NetFirewallRule | Measure-Object | Select-Object -ExpandProperty Count
 ```
 
+**Lưu ý kỹ thuật:** Profiles dùng `PSObject.Properties["Name"].Value` (không qua ConvertTo-Json). Rules, filters, ports dùng `ConvertTo-Json -Compress` rồi `JsonDocument.Parse` trên `BaseObject as string` — hai luồng xử lý phải khác nhau, không lẫn lộn.
+
+**Risky Port Definitions (21 entries):**
+
+| Port | Risk | Mô tả |
+|------|------|--------|
+| 21 | high | FTP – cleartext credentials |
+| 22 | medium | SSH – brute force target |
+| 23 | critical | Telnet – plaintext remote shell |
+| 25 | high | SMTP relay – spam/phishing pivot |
+| 53 | medium | DNS – poisoning / amplification |
+| 80 | low | HTTP – unencrypted web service |
+| 135 | high | RPC/DCOM – lateral movement vector |
+| 137 | high | NetBIOS Name Service – recon/spoofing |
+| 138 | high | NetBIOS Datagram – recon |
+| 139 | high | NetBIOS Session – SMB legacy / Pass-the-Hash |
+| 389 | medium | LDAP (cleartext) |
+| 443 | low | HTTPS – web, thường chấp nhận |
+| 445 | critical | SMB – EternalBlue / ransomware / lateral movement |
+| 1433 | high | MSSQL – direct DB exposure |
+| 1434 | high | MSSQL Browser – UDP enumeration |
+| 3306 | high | MySQL – direct DB exposure |
+| 3389 | high | RDP – brute force / BlueKeep |
+| 4444 | critical | Metasploit default listener |
+| 5985 | high | WinRM HTTP – PowerShell remoting |
+| 5986 | medium | WinRM HTTPS |
+| 8080 | low | HTTP alt – dev/proxy service |
+
+**Logic phát hiện `RiskyPorts`:**
+1. Thu thập tất cả TCP/UDP port đang LISTEN vào `ListeningPorts[]`
+2. Với mỗi port trong `RiskyPortDefs`: kiểm tra xem có entry trong `ListeningPorts` không → `IsListening`
+3. Kiểm tra inbound rules: có rule `Direction=Inbound, Action=Allow` với `LocalPort` khớp (hoặc `Any`) không → `HasInboundAllowRule`
+4. Rule `LocalPort = "Any"` / rỗng → đánh dấu **tất cả** risky port là `HasInboundAllowRule = true`
+5. Output vào `RiskyPorts[]`: Port, Protocol, RiskLevel, Description, IsListening, HasInboundAllowRule, ProcessName
+
+**Violation rule:** `network.risky_port_exposed` — kích hoạt khi `IsListening = true AND HasInboundAllowRule = true`, severity theo RiskLevel (critical → critical, high → high).
+
 **Data thu thập:**
-- Profiles: Domain / Private / Public — Enabled, DefaultInbound/OutboundAction
-- Rules: tối đa 500 rule đang enabled — Name, Direction, Action, Profile
-- Tổng số rule (Total, Enabled, Inbound, Outbound)
+- `Profiles[]`: Domain / Private / Public — Enabled, DefaultInbound/OutboundAction
+- `Rules[]`: tối đa 500 rule đang enabled — Name, Direction, Action, Profile, Protocol, LocalPort, RemotePort, Program
+- `TotalRules`, `EnabledRules`, `InboundRules`, `OutboundRules`
+- `ListeningPorts[]`: Protocol, Address, Port, Pid, ProcessName
+- `RiskyPorts[]`: Port, Protocol, RiskLevel, Description, IsListening, HasInboundAllowRule, ProcessName
 
 ---
 
@@ -327,7 +437,7 @@ Properties: HotFixID, Description, InstalledOn
 ```
 Class     : Win32_UserAccount
 Condition : LocalAccount=True
-Properties: Name, SID, Disabled, PasswordExpires, LastLogon, Description, AccountType
+Properties: Name, SID, Disabled, PasswordExpires, Description, AccountType
 ```
 
 **Script / Lệnh:**
@@ -478,6 +588,123 @@ SOFTWARE\Policies\Microsoft Services\AdmPwd
 
 ---
 
+### 20. EndpointProtection — Antivirus / Endpoint Security (Kaspersky)
+
+**Mục tiêu:** Phát hiện AV/FW đã đăng ký với Windows Security Center, và khai thác chi tiết Kaspersky Endpoint Security nếu có.
+
+#### WMI — Windows Security Center (`root\SecurityCenter2`)
+
+```
+Namespace : root\SecurityCenter2
+Class     : AntiVirusProduct
+Properties: displayName, productState, timestamp
+
+Class     : FirewallProduct
+Properties: displayName, productState, timestamp
+```
+
+**Decode `productState` (24-bit integer):**
+
+| Byte (hex) | Vị trí | Ý nghĩa | Giá trị |
+|-----------|--------|---------|---------|
+| Byte 2 (`(state >> 16) & 0xFF`) | Bit 12–15 | Enabled state | `0x10` = Enabled, `0x00` = Disabled |
+| Byte 3 (`(state >> 8) & 0xFF`) | Bit 8–11 | Signature/Definition state | `0x00` = Up-to-date, `0x10` = Outdated |
+
+```csharp
+// Ví dụ: productState = 397568 = 0x061100
+// byte2 = 0x11 = enabled, byte3 = 0x00 = up-to-date → Enabled=true, UpToDate=true
+bool enabled  = ((productState >> 12) & 0xF) == 1;
+bool upToDate = ((productState >> 4) & 0xF) == 0;
+```
+
+#### Registry — Kaspersky Endpoint Security (`HKLM\SOFTWARE\KasperskyLab\`)
+
+Duyệt qua các subkey (ví dụ `KES`, `AVP21.3`, ...) để tìm version và trạng thái:
+
+```
+HKLM\SOFTWARE\KasperskyLab\<ProductKey>
+  → ProductName         (string)
+  → Version             (string, e.g. "21.3.10.391")
+  → InstallPath         (string)
+
+HKLM\SOFTWARE\KasperskyLab\<ProductKey>\settings
+  → AvEnabled           (DWORD, 1 = AV enabled)
+  → AvUpToDate          (DWORD, 1 = signatures current)
+```
+
+`FirewallRegistered`: lấy từ WMI — Kaspersky có đăng ký FirewallProduct trong SecurityCenter2 không.
+
+#### Logic FirewallNote
+
+| Kịch bản | FirewallNote |
+|----------|-------------|
+| Không có Kaspersky nào | "Kaspersky không phát hiện — kiểm tra thủ công firewall qua Windows Defender Firewall" |
+| Kaspersky có nhưng không đăng ký Firewall với SecurityCenter2 | "Kaspersky Endpoint Security phát hiện nhưng chưa đăng ký firewall component — kiểm tra policy KES" |
+| Kaspersky có và đã đăng ký Firewall | "Kaspersky Endpoint Security firewall đang hoạt động" |
+
+**Data thu thập (`EndpointProtectionResult`):**
+- `AntivirusProducts[]`: SecurityProduct (Name, Enabled, UpToDate, StateHex, Timestamp)
+- `FirewallProducts[]`: SecurityProduct
+- `KasperskyDetected` (bool)
+- `Kaspersky`: KasperskyDetail (ProductName, Version, InstallPath, AvEnabled, AvUpToDate, FirewallRegistered, FirewallEnabled)
+- `FirewallNote` (string)
+
+---
+
+### 21. WiFi — Kết nối mạng không dây
+
+**Mục tiêu:** Liệt kê tất cả WiFi profile đã từng lưu, kiểm tra phương thức mã hoá, phát hiện kết nối không có mã hoá (WEP, Open) theo tiêu chuẩn bảo mật tối thiểu WPA2.
+
+#### Script / Lệnh
+
+```
+# Bước 1 — Lấy danh sách profile name đã lưu
+netsh wlan show profiles
+
+# Bước 2 — Chi tiết từng profile (kể cả password nếu agent chạy SYSTEM)
+netsh wlan show profile name="<SSID>" key=clear
+```
+
+Parse output `netsh wlan show profiles` → lấy dòng `All User Profile` → trích SSID.
+
+Parse output `netsh wlan show profile name="..." key=clear`:
+- `Authentication` → auth type (WPA2-Personal, WPA3-Personal, WEP, Open, ...)
+- `Cipher` → cipher (CCMP, TKIP, WEP, None)
+- `Key Content` → password (nếu key=clear và chạy SYSTEM)
+
+```powershell
+# Bước 3 — Kết nối WiFi đang active
+Get-NetConnectionProfile |
+    Select-Object Name, InterfaceAlias, NetworkCategory, IPv4Connectivity, IPv6Connectivity |
+    ConvertTo-Json -Compress
+```
+
+**Bảng phân loại rủi ro:**
+
+| Authentication | Cipher | Risk Level | Mô tả |
+|---------------|--------|------------|-------|
+| Open | None | **critical** | Không có mã hoá — traffic bị nghe lén hoàn toàn |
+| WEP | WEP | **critical** | WEP bị crack trong vài phút bằng aircrack-ng |
+| WPA-Personal | TKIP | **high** | TKIP có lỗ hổng; WPA(v1) không còn được khuyến nghị |
+| WPA2-Personal | TKIP | **medium** | WPA2 nhưng dùng TKIP thay vì CCMP |
+| WPA2-Personal | CCMP | safe | Tối thiểu được chấp nhận |
+| WPA3-Personal | GCMP | safe | Khuyến nghị cho môi trường hiện đại |
+| WPA2-Enterprise | CCMP | safe | Enterprise với 802.1X — tốt nhất |
+
+**Tiêu chuẩn tối thiểu:** WPA2 + CCMP (AES). Bất kỳ profile nào dùng `Open`, `WEP`, hoặc `WPA (v1)` đều tạo violation `wifi.insecure_profile`.
+
+**Violation rule:** `wifi.insecure_profile` — severity `critical` nếu Open/WEP, `high` nếu WPA(v1).
+
+**Data thu thập (`WiFiResult`):**
+- `Profiles[]`: SSID, Authentication, Cipher, RiskLevel, IsCurrentlyConnected
+- `ActiveConnections[]`: InterfaceAlias, NetworkName, NetworkCategory
+- `HasInsecureProfile` (bool)
+- `InsecureProfiles[]`: danh sách SSID vi phạm
+
+**Ghi chú:** `netsh wlan show profile name="..." key=clear` yêu cầu chạy dưới **SYSTEM** hoặc **Local Admin** để lấy `Key Content`. Thiếu quyền → vẫn lấy được auth/cipher, chỉ thiếu password.
+
+---
+
 ## Infrastructure
 
 ### Process Runner (`ProcessRunner`)
@@ -517,5 +744,7 @@ Wrapper quanh `System.Management.ManagementObjectSearcher`, hỗ trợ `conditio
 | EventLogSettings | ✅ | ⚠️ | ⚠️ |
 | RemoteAccess | ✅ | ✅ | ✅ |
 | LAPS | ✅ | ✅ | ✅ |
+| EndpointProtection | ✅ | ✅ | ✅ |
+| WiFi | ✅ Full (incl. key) | ⚠️ Auth/cipher only | ⚠️ Auth/cipher only |
 
 > ⚠️ = có thể thiếu data một số trường. ❌ = collector trả về empty/fail, ghi log Warning.

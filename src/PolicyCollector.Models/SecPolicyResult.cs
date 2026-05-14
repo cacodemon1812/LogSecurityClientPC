@@ -4,12 +4,40 @@ namespace PolicyCollector.Agent.Models;
 
 public sealed class SecPolicyResult
 {
-    [JsonPropertyName("password_policy")] public PasswordPolicy? PasswordPolicy { get; init; }
-    [JsonPropertyName("audit_policy")] public AuditPolicy? AuditPolicy { get; init; }
-    [JsonPropertyName("user_rights")] public Dictionary<string, List<string>>? UserRights { get; init; }
-    [JsonPropertyName("uac")] public UacConfig? Uac { get; init; }
-    [JsonPropertyName("tls")] public TlsConfig? Tls { get; init; }
-    [JsonPropertyName("rdp")] public RdpConfig? Rdp { get; init; }
+    [JsonPropertyName("password_policy")]  public PasswordPolicy?  PasswordPolicy  { get; init; }
+    [JsonPropertyName("audit_policy")]     public AuditPolicy?     AuditPolicy     { get; init; }
+    [JsonPropertyName("user_rights")]      public Dictionary<string, List<string>>? UserRights { get; init; }
+    [JsonPropertyName("uac")]              public UacConfig?        Uac             { get; init; }
+    [JsonPropertyName("tls")]              public TlsConfig?        Tls             { get; init; }
+    [JsonPropertyName("rdp")]              public RdpConfig?        Rdp             { get; init; }
+    [JsonPropertyName("security_options")] public SecurityOptions?  SecurityOptions { get; init; }
+}
+
+public sealed class SecurityOptions
+{
+    // NTLM / LM authentication
+    [JsonPropertyName("lm_compatibility_level")]      public int?  LmCompatibilityLevel     { get; init; }
+    [JsonPropertyName("no_lm_hash")]                  public bool? NoLmHash                 { get; init; }
+    // Anonymous access
+    [JsonPropertyName("restrict_anonymous")]          public int?  RestrictAnonymous         { get; init; }
+    [JsonPropertyName("restrict_anonymous_sam")]      public bool? RestrictAnonymousSam      { get; init; }
+    // WDigest
+    [JsonPropertyName("wdigest_enabled")]             public bool? WdigestEnabled            { get; init; }
+    // LSA Protection (PPL)
+    [JsonPropertyName("lsa_ppl_enabled")]             public bool? LsaPplEnabled             { get; init; }
+    // SMB signing
+    [JsonPropertyName("smb_client_signing_required")] public bool? SmbClientSigningRequired  { get; init; }
+    [JsonPropertyName("smb_client_signing_enabled")]  public bool? SmbClientSigningEnabled   { get; init; }
+    [JsonPropertyName("smb_server_signing_required")] public bool? SmbServerSigningRequired  { get; init; }
+    [JsonPropertyName("smb_server_signing_enabled")]  public bool? SmbServerSigningEnabled   { get; init; }
+    // UAC extras
+    [JsonPropertyName("local_account_uac_filter")]    public bool? LocalAccountUacFilter     { get; init; }
+    // RDP Restricted Admin (prevents pass-the-hash via RDP)
+    [JsonPropertyName("restricted_admin_disabled")]   public bool? RestrictedAdminDisabled   { get; init; }
+    // VBS
+    [JsonPropertyName("vbs_enabled")]                 public bool? VbsEnabled                { get; init; }
+    // Credential caching
+    [JsonPropertyName("disable_domain_creds")]        public bool? DisableDomainCreds        { get; init; }
 }
 
 public sealed class PasswordPolicy

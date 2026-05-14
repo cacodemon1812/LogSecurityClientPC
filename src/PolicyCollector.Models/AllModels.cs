@@ -160,3 +160,28 @@ public sealed class KasperskyDetail
     [JsonPropertyName("firewall_registered")]       public bool FirewallRegistered { get; init; }
     [JsonPropertyName("firewall_enabled")]          public bool FirewallEnabled { get; init; }
 }
+
+public sealed class WiFiResult
+{
+    [JsonPropertyName("profiles")]           public List<WiFiProfile>?    Profiles          { get; init; }
+    [JsonPropertyName("active_connections")] public List<WiFiConnection>? ActiveConnections { get; init; }
+    [JsonPropertyName("has_insecure_profile")]public bool                 HasInsecureProfile { get; init; }
+    [JsonPropertyName("insecure_ssids")]     public List<string>?         InsecureSsids     { get; init; }
+}
+
+public sealed class WiFiProfile
+{
+    [JsonPropertyName("ssid")]           public string? Ssid           { get; init; }
+    [JsonPropertyName("authentication")] public string? Authentication { get; init; }
+    [JsonPropertyName("cipher")]         public string? Cipher         { get; init; }
+    // "safe" | "medium" | "high" | "critical" | "unknown"
+    [JsonPropertyName("risk_level")]     public string? RiskLevel      { get; init; }
+    [JsonPropertyName("is_connected")]   public bool    IsConnected    { get; init; }
+}
+
+public sealed class WiFiConnection
+{
+    [JsonPropertyName("interface_alias")] public string? InterfaceAlias { get; init; }
+    [JsonPropertyName("network_name")]    public string? NetworkName    { get; init; }
+    [JsonPropertyName("category")]        public string? Category       { get; init; }
+}

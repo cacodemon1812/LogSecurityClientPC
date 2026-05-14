@@ -30,4 +30,5 @@ public sealed class ModuleOptions
     public bool RemoteAccess { get; init; } = true;
     public bool LAPS { get; init; } = true;
     public bool EndpointProtection { get; init; } = true;
+    public bool WiFi { get; init; } = true;
 }

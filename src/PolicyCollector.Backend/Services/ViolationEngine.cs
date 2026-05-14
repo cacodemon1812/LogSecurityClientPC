@@ -37,8 +37,13 @@ public sealed class ViolationEngine
                     "bitlocker.os_volume"  => CheckBitLockerOsVolume(payload, rule),
                     "tls.weak_protocol"    => CheckTlsWeakProtocol(payload, rule),
                     "rdp.nla_disabled"          => CheckRdpNla(payload, rule),
-                    "network.risky_port_exposed" => CheckRiskyPortExposed(payload, rule),
-                    _                            => null
+                    "network.risky_port_exposed"          => CheckRiskyPortExposed(payload, rule),
+                    "wifi.insecure_profile"               => CheckWifiInsecureProfile(payload, rule),
+                    "security.wdigest_enabled"            => CheckWdigestEnabled(payload, rule),
+                    "security.ntlm_level_weak"            => CheckNtlmLevelWeak(payload, rule),
+                    "security.lsa_ppl_disabled"           => CheckLsaPplDisabled(payload, rule),
+                    "security.smb_signing_disabled"       => CheckSmbSigningDisabled(payload, rule),
+                    _                                     => null
                 };
 
                 if (violation is not null)
@@ -211,6 +216,86 @@ public sealed class ViolationEngine
             $"High-risk port(s) exposed via inbound firewall Allow rule: {portList}",
             "No high-risk ports exposed",
             $"{exposed.Count} port(s): {string.Join(", ", exposed.Select(p => p.Port))}");
+    }
+
+    private static ViolationEntry? CheckWifiInsecureProfile(CollectionPayload payload, PolicyRule rule)
+    {
+        var wifi = payload.Wifi;
+        if (wifi is null || wifi.HasInsecureProfile == false) return null;
+
+        var ssids = wifi.InsecureSsids;
+        if (ssids is null || ssids.Count == 0) return null;
+
+        var connected = wifi.Profiles?
+            .Where(p => (p.RiskLevel is "critical" or "high") && p.IsConnected)
+            .Select(p => p.Ssid!)
+            .Where(s => !string.IsNullOrEmpty(s))
+            .ToList() ?? [];
+
+        var detail = string.Join(", ", ssids.Select(s => $"\"{s}\""));
+        var connectedNote = connected.Count > 0
+            ? $" Currently connected to: {string.Join(", ", connected.Select(s => $"\"{s}\""))}."
+            : string.Empty;
+
+        return Violation(rule,
+            $"WiFi profile(s) with insecure encryption detected: {detail}.{connectedNote}",
+            "All profiles use WPA2+CCMP or stronger",
+            $"{ssids.Count} insecure profile(s): {detail}");
+    }
+
+    private static ViolationEntry? CheckWdigestEnabled(CollectionPayload payload, PolicyRule rule)
+    {
+        var opt = payload.SecurityPolicy?.SecurityOptions;
+        if (opt is null) return null;
+        // WdigestEnabled=false means UseLogonCredential=0 — that's the safe state
+        if (opt.WdigestEnabled != true) return null;
+
+        return Violation(rule,
+            "WDigest authentication is enabled (UseLogonCredential=1) — LSASS stores cleartext credentials",
+            "UseLogonCredential = 0",
+            "UseLogonCredential = 1");
+    }
+
+    private static ViolationEntry? CheckNtlmLevelWeak(CollectionPayload payload, PolicyRule rule)
+    {
+        var opt = payload.SecurityPolicy?.SecurityOptions;
+        if (opt is null) return null;
+        var level = opt.LmCompatibilityLevel;
+        if (level is null || level >= 3) return null; // null = key not set (default varies); ≥3 = NTLMv2 only
+
+        return Violation(rule,
+            $"LAN Manager authentication level is {level} — allows LM/NTLMv1 which can be relayed or cracked",
+            "LmCompatibilityLevel ≥ 3 (Send NTLMv2 only)",
+            $"LmCompatibilityLevel = {level}");
+    }
+
+    private static ViolationEntry? CheckLsaPplDisabled(CollectionPayload payload, PolicyRule rule)
+    {
+        var opt = payload.SecurityPolicy?.SecurityOptions;
+        if (opt is null) return null;
+        if (opt.LsaPplEnabled == true) return null;
+
+        return Violation(rule,
+            "LSA Protection (RunAsPPL) is not enabled — credential dumping without a kernel driver is possible",
+            "RunAsPPL = 1",
+            opt.LsaPplEnabled == false ? "RunAsPPL = 0" : "RunAsPPL key not set");
+    }
+
+    private static ViolationEntry? CheckSmbSigningDisabled(CollectionPayload payload, PolicyRule rule)
+    {
+        var opt = payload.SecurityPolicy?.SecurityOptions;
+        if (opt is null) return null;
+
+        var issues = new List<string>();
+        if (opt.SmbClientSigningRequired == false) issues.Add("SMB client signing not required");
+        if (opt.SmbServerSigningRequired == false) issues.Add("SMB server signing not required");
+
+        if (issues.Count == 0) return null;
+
+        return Violation(rule,
+            $"SMB signing misconfiguration: {string.Join("; ", issues)} — vulnerable to relay attacks",
+            "Client and server RequireSecuritySignature = 1",
+            string.Join("; ", issues));
     }
 
     private static ViolationEntry Violation(PolicyRule rule, string message, string expected, string actual) =>

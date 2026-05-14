@@ -28,6 +28,7 @@ public sealed class CollectionJob
     private readonly ICollector<RemoteAccessResult> _remoteAccessCollector;
     private readonly ICollector<LapsResult> _lapsCollector;
     private readonly ICollector<EndpointProtectionResult> _endpointProtectionCollector;
+    private readonly ICollector<WiFiResult> _wifiCollector;
     private readonly ILogger<CollectionJob> _logger;
 
     public CollectionJob(
@@ -53,6 +54,7 @@ public sealed class CollectionJob
         ICollector<RemoteAccessResult> remoteAccessCollector,
         ICollector<LapsResult> lapsCollector,
         ICollector<EndpointProtectionResult> endpointProtectionCollector,
+        ICollector<WiFiResult> wifiCollector,
         ILogger<CollectionJob> logger)
     {
         _options = options;
@@ -77,6 +79,7 @@ public sealed class CollectionJob
         _remoteAccessCollector = remoteAccessCollector;
         _lapsCollector = lapsCollector;
         _endpointProtectionCollector = endpointProtectionCollector;
+        _wifiCollector = wifiCollector;
         _logger = logger;
     }
 
@@ -112,6 +115,7 @@ public sealed class CollectionJob
         RemoteAccessResult? remoteAccess = null;
         LapsResult? laps = null;
         EndpointProtectionResult? endpointProtection = null;
+        WiFiResult? wifi = null;
 
         var hostTask = RunCollector(_hostCollector, timeout, cts.Token)
             .ContinueWith(t => hostInfo = t.Result?.Data, TaskContinuationOptions.OnlyOnRanToCompletion);
@@ -257,6 +261,13 @@ public sealed class CollectionJob
             tasks.Add(t);
         }
 
+        if (modules.WiFi)
+        {
+            var t = RunCollector(_wifiCollector, timeout, cts.Token)
+                .ContinueWith(r => wifi = r.Result?.Data, TaskContinuationOptions.OnlyOnRanToCompletion);
+            tasks.Add(t);
+        }
+
         try
         {
             await Task.WhenAll(tasks);
@@ -287,7 +298,8 @@ public sealed class CollectionJob
             eventLogSettings,
             remoteAccess,
             laps,
-            endpointProtection);
+            endpointProtection,
+            wifi);
 
         _logger.LogInformation("Collection cycle completed in {Duration}ms",
             (DateTimeOffset.UtcNow - startTime).TotalMilliseconds);

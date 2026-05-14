@@ -24,7 +24,8 @@ public static class PayloadBuilder
         EventLogSettings? eventLogSettings,
         RemoteAccessResult? remoteAccess,
         LapsResult? laps,
-        EndpointProtectionResult? endpointProtection) =>
+        EndpointProtectionResult? endpointProtection,
+        WiFiResult? wifi) =>
         new()
         {
             CollectionId        = Guid.NewGuid().ToString(),
@@ -49,6 +50,7 @@ public static class PayloadBuilder
             EventLogSettings    = eventLogSettings,
             RemoteAccess        = remoteAccess,
             Laps                = laps,
-            EndpointProtection  = endpointProtection
+            EndpointProtection  = endpointProtection,
+            Wifi                = wifi
         };
 }

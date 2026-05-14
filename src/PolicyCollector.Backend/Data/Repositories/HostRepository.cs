@@ -87,7 +87,7 @@ public sealed class HostRepository
         queryParams.Add("@Size", size);
 
         var items = await conn.QueryAsync<HostRow>($"""
-            SELECT hostname, domain, os_version, agent_version, last_seen, status
+            SELECT host_id, hostname, domain, os_version, agent_version, last_seen, status
             FROM host_latest
             {whereClause}
             ORDER BY {orderClause}

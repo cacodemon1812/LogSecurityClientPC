@@ -64,6 +64,7 @@ builder.Services.AddSingleton<ICollector<HardwareSecurity>, HardwareSecurityColl
 builder.Services.AddSingleton<ICollector<EventLogSettings>, EventLogSettingsCollector>();
 builder.Services.AddSingleton<ICollector<RemoteAccessResult>, RemoteAccessCollector>();
 builder.Services.AddSingleton<ICollector<LapsResult>, LapsCollector>();
+builder.Services.AddSingleton<ICollector<EndpointProtectionResult>, EndpointProtectionCollector>();
 
 // Jobs and Services
 builder.Services.AddSingleton<CollectionJob>();

@@ -53,6 +53,7 @@ public sealed record SnapshotRow
 
 public sealed record HostRow
 {
+    public Guid HostId { get; init; }
     public string Hostname { get; init; } = string.Empty;
     public string? Domain { get; init; }
     public string? OsVersion { get; init; }

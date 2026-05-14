@@ -29,4 +29,5 @@ public sealed class ModuleOptions
     public bool EventLogSettings { get; init; } = true;
     public bool RemoteAccess { get; init; } = true;
     public bool LAPS { get; init; } = true;
+    public bool EndpointProtection { get; init; } = true;
 }

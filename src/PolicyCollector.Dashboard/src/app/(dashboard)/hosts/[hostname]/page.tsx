@@ -42,7 +42,18 @@ interface CollectionPayload {
   firewall?: {
     profiles?: Record<string, { enabled: boolean; inbound?: string; outbound?: string }>;
     rules_summary?: { total: number; enabled: number; inbound: number; outbound: number };
-    rules?: Array<{ name?: string; display_name?: string; direction?: string; action?: string; enabled?: boolean; protocol?: string; local_port?: string; remote_port?: string; profile?: string }>;
+    rules?: Array<{
+      name?: string; display_name?: string; direction?: string; action?: string;
+      enabled?: boolean; protocol?: string; local_port?: string; remote_port?: string;
+      profile?: string; program?: string;
+    }>;
+    listening_ports?: Array<{
+      protocol?: string; address?: string; port: number; pid?: number; process_name?: string;
+    }>;
+    risky_ports?: Array<{
+      port: number; protocol?: string; risk_level: string; description?: string;
+      is_listening: boolean; has_inbound_allow_rule: boolean; process_name?: string;
+    }>;
   };
   hardware_security?: { uefi_mode?: boolean; vbs_status?: number; hvci_status?: number; tpm_enabled?: boolean; tpm_present?: boolean; tpm_version?: string; tpm_activated?: boolean; secure_boot_enabled?: boolean };
   patch?: { hotfixes?: Array<{ hotfix_id: string; description?: string; installed_on?: string }>; wsus_server?: string; hotfix_count?: number; no_auto_update?: boolean; auto_update_options?: number; last_success_detect?: string; last_success_install?: string };
@@ -456,15 +467,37 @@ function PolicyTab({ payload }: { payload: CollectionPayload }) {
 
 // ── Tab: Firewall ─────────────────────────────────────────────────────────────
 
+const RISK_STYLE: Record<string, string> = {
+  critical: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border border-red-300 dark:border-red-700",
+  high:     "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-300 dark:border-orange-700",
+  medium:   "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-700",
+};
+
+function RiskBadge({ level }: { level: string }) {
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold uppercase ${RISK_STYLE[level] ?? "bg-muted text-muted-foreground"}`}>
+      {level}
+    </span>
+  );
+}
+
 function FirewallTab({ payload }: { payload: CollectionPayload }) {
   const fw = payload.firewall;
-  const profiles = fw?.profiles ? Object.entries(fw.profiles) : [];
-  const summary = fw?.rules_summary;
-  const [showRules, setShowRules] = useState(false);
-  const rules = fw?.rules ?? [];
+  const profiles    = fw?.profiles ? Object.entries(fw.profiles) : [];
+  const summary     = fw?.rules_summary;
+  const rules       = fw?.rules ?? [];
+  const listening   = fw?.listening_ports ?? [];
+  const riskyPorts  = fw?.risky_ports ?? [];
+  const [showRules,      setShowRules]      = useState(false);
+  const [showListening,  setShowListening]  = useState(false);
+
+  const criticalOrHigh = riskyPorts.filter(p => p.risk_level === "critical" || p.risk_level === "high");
+  const exposedCount   = riskyPorts.filter(p => p.is_listening && p.has_inbound_allow_rule).length;
 
   return (
     <div className="space-y-4">
+
+      {/* ── Stat strip ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card><CardContent className="pt-4 pb-3">
           <p className="text-xs text-muted-foreground uppercase tracking-wide">Tổng quy tắc</p>
@@ -475,15 +508,71 @@ function FirewallTab({ payload }: { payload: CollectionPayload }) {
           <p className="text-2xl font-bold mt-1 text-green-600">{summary?.enabled ?? "—"}</p>
         </CardContent></Card>
         <Card><CardContent className="pt-4 pb-3">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">Inbound</p>
-          <p className="text-2xl font-bold mt-1">{summary?.inbound ?? "—"}</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Listening ports</p>
+          <p className="text-2xl font-bold mt-1">{listening.length || "—"}</p>
         </CardContent></Card>
         <Card><CardContent className="pt-4 pb-3">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">Outbound</p>
-          <p className="text-2xl font-bold mt-1">{summary?.outbound ?? "—"}</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Cổng nguy hiểm lộ</p>
+          <p className={`text-2xl font-bold mt-1 ${exposedCount > 0 ? "text-destructive" : "text-green-600"}`}>
+            {exposedCount}
+          </p>
         </CardContent></Card>
       </div>
 
+      {/* ── Risky ports — shown first, always visible if any exist ── */}
+      {riskyPorts.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-orange-500" />
+              Cổng có nguy cơ cao ({riskyPorts.length})
+              {exposedCount > 0 && (
+                <span className="ml-2 text-xs text-destructive font-normal">
+                  ⚠ {exposedCount} cổng đang lộ ra mạng
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[680px]">
+                <thead><tr className="border-b bg-muted/30">
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Port</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Proto</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Mức độ</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Mô tả rủi ro</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Đang lắng nghe</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Inbound Allow</th>
+                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Process</th>
+                </tr></thead>
+                <tbody>
+                  {riskyPorts.map((p) => {
+                    const exposed = p.is_listening && p.has_inbound_allow_rule;
+                    return (
+                      <tr key={`${p.protocol}-${p.port}`}
+                          className={`border-b last:border-0 ${exposed ? "bg-red-50/50 dark:bg-red-950/20" : ""}`}>
+                        <td className="px-4 py-2 font-mono font-bold">{p.port}</td>
+                        <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{p.protocol ?? "—"}</td>
+                        <td className="px-4 py-2"><RiskBadge level={p.risk_level} /></td>
+                        <td className="px-4 py-2 text-xs text-muted-foreground max-w-[240px]">{p.description ?? "—"}</td>
+                        <td className="px-4 py-2"><BoolIcon value={p.is_listening} /></td>
+                        <td className="px-4 py-2">
+                          {p.has_inbound_allow_rule
+                            ? <span className="inline-flex items-center gap-1 text-destructive text-xs font-medium"><XCircle className="h-3 w-3" />Có rule Allow</span>
+                            : <span className="inline-flex items-center gap-1 text-green-600 text-xs"><CheckCircle2 className="h-3 w-3" />Không có</span>}
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs">{p.process_name ?? "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Firewall Profiles ── */}
       {profiles.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
@@ -491,17 +580,22 @@ function FirewallTab({ payload }: { payload: CollectionPayload }) {
           </CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-sm">
-              <thead><tr className="border-b">
+              <thead><tr className="border-b bg-muted/30">
                 <th className="px-4 py-2 text-left font-medium text-muted-foreground">Profile</th>
                 <th className="px-4 py-2 text-left font-medium text-muted-foreground">Trạng thái</th>
-                <th className="px-4 py-2 text-left font-medium text-muted-foreground">Inbound</th>
-                <th className="px-4 py-2 text-left font-medium text-muted-foreground">Outbound</th>
+                <th className="px-4 py-2 text-left font-medium text-muted-foreground">Inbound mặc định</th>
+                <th className="px-4 py-2 text-left font-medium text-muted-foreground">Outbound mặc định</th>
               </tr></thead>
               <tbody>
                 {profiles.map(([name, p]) => (
                   <tr key={name} className="border-b last:border-0">
                     <td className="px-4 py-2 font-medium">{name}</td>
-                    <td className="px-4 py-2"><span className="flex items-center gap-1"><BoolIcon value={p.enabled} />{p.enabled ? "Bật" : "Tắt"}</span></td>
+                    <td className="px-4 py-2">
+                      <span className="flex items-center gap-1">
+                        <BoolIcon value={p.enabled} />
+                        {p.enabled ? "Bật" : <span className="text-destructive font-medium">Tắt</span>}
+                      </span>
+                    </td>
                     <td className="px-4 py-2 text-muted-foreground">{p.inbound ?? "—"}</td>
                     <td className="px-4 py-2 text-muted-foreground">{p.outbound ?? "—"}</td>
                   </tr>
@@ -512,11 +606,57 @@ function FirewallTab({ payload }: { payload: CollectionPayload }) {
         </Card>
       )}
 
+      {/* ── Listening ports (collapsible) ── */}
+      {listening.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Listening Ports ({listening.length})</CardTitle>
+              <button onClick={() => setShowListening(v => !v)} className="text-xs text-primary hover:underline">
+                {showListening ? "Ẩn" : "Xem tất cả"}
+              </button>
+            </div>
+          </CardHeader>
+          {showListening && (
+            <CardContent className="p-0">
+              <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                <table className="w-full text-xs min-w-[500px]">
+                  <thead><tr className="border-b sticky top-0 bg-card">
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Port</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Proto</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Address</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Process</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">PID</th>
+                  </tr></thead>
+                  <tbody>
+                    {listening.map((lp, i) => {
+                      const isRisky = riskyPorts.some(r => r.port === lp.port);
+                      return (
+                        <tr key={i} className={`border-b last:border-0 ${isRisky ? "bg-orange-50/50 dark:bg-orange-950/10" : ""}`}>
+                          <td className={`px-3 py-1.5 font-mono font-bold ${isRisky ? "text-orange-600" : ""}`}>{lp.port}</td>
+                          <td className="px-3 py-1.5 font-mono text-muted-foreground">{lp.protocol ?? "—"}</td>
+                          <td className="px-3 py-1.5 font-mono text-muted-foreground">{lp.address ?? "—"}</td>
+                          <td className="px-3 py-1.5 font-mono">{lp.process_name ?? "—"}</td>
+                          <td className="px-3 py-1.5 text-muted-foreground">{lp.pid ?? "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      {/* ── Firewall Rules (collapsible) ── */}
       {rules.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Firewall Rules ({rules.length})</CardTitle>
+              <CardTitle className="text-base">
+                Firewall Rules — Inbound Allow ({rules.filter(r => r.direction?.includes("Inbound") && r.action?.includes("Allow")).length} / {rules.length} enabled)
+              </CardTitle>
               <button onClick={() => setShowRules(v => !v)} className="text-xs text-primary hover:underline">
                 {showRules ? "Ẩn" : "Xem tất cả"}
               </button>
@@ -525,26 +665,41 @@ function FirewallTab({ payload }: { payload: CollectionPayload }) {
           {showRules && (
             <CardContent className="p-0">
               <div className="overflow-x-auto max-h-96 overflow-y-auto">
-                <table className="w-full text-xs min-w-[700px]">
+                <table className="w-full text-xs min-w-[820px]">
                   <thead><tr className="border-b sticky top-0 bg-card">
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tên</th>
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground">Chiều</th>
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground">Hành động</th>
                     <th className="px-3 py-2 text-left font-medium text-muted-foreground">Protocol</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Port</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Bật</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Local Port</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Remote Port</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Program</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Profile</th>
                   </tr></thead>
                   <tbody>
-                    {rules.map((r, i) => (
-                      <tr key={i} className="border-b last:border-0">
-                        <td className="px-3 py-1.5">{r.display_name ?? r.name ?? "—"}</td>
-                        <td className="px-3 py-1.5">{r.direction ?? "—"}</td>
-                        <td className="px-3 py-1.5">{r.action ?? "—"}</td>
-                        <td className="px-3 py-1.5">{r.protocol ?? "—"}</td>
-                        <td className="px-3 py-1.5">{r.local_port ?? "—"}</td>
-                        <td className="px-3 py-1.5"><BoolIcon value={r.enabled} /></td>
-                      </tr>
-                    ))}
+                    {rules.map((r, i) => {
+                      const isInboundAllow = r.direction?.includes("Inbound") && r.action?.includes("Allow");
+                      return (
+                        <tr key={i} className={`border-b last:border-0 ${isInboundAllow ? "bg-orange-50/30 dark:bg-orange-950/10" : ""}`}>
+                          <td className="px-3 py-1.5 max-w-[200px] truncate" title={r.display_name ?? r.name ?? ""}>{r.display_name ?? r.name ?? "—"}</td>
+                          <td className="px-3 py-1.5">
+                            <span className={`text-xs font-medium ${r.direction?.includes("Inbound") ? "text-orange-600" : "text-blue-600"}`}>
+                              {r.direction ?? "—"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-1.5">
+                            <span className={`text-xs font-medium ${r.action?.includes("Allow") ? "text-green-600" : "text-destructive"}`}>
+                              {r.action ?? "—"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-1.5 font-mono text-muted-foreground">{r.protocol ?? "Any"}</td>
+                          <td className="px-3 py-1.5 font-mono">{r.local_port ?? "Any"}</td>
+                          <td className="px-3 py-1.5 font-mono text-muted-foreground">{r.remote_port ?? "Any"}</td>
+                          <td className="px-3 py-1.5 font-mono text-muted-foreground max-w-[140px] truncate" title={r.program ?? ""}>{r.program ?? "—"}</td>
+                          <td className="px-3 py-1.5 text-muted-foreground">{r.profile ?? "—"}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1091,7 +1246,7 @@ function RegistryTab({ payload }: { payload: CollectionPayload }) {
 
 // ── Tab: Diff ─────────────────────────────────────────────────────────────────
 
-function DiffTab({ hostname }: { hostname: string }) {
+function DiffTab({ hostId }: { hostId: string }) {
   const [diffPeriod, setDiffPeriod] = useState("24");
 
   const diffFrom = (() => {
@@ -1101,8 +1256,8 @@ function DiffTab({ hostname }: { hostname: string }) {
   })();
 
   const { data: diff, isLoading } = useQuery<DiffResult>({
-    queryKey: ["host-diff", hostname, diffPeriod],
-    queryFn: () => hostsApi.getDiff(hostname, diffFrom).then(r => r.data),
+    queryKey: ["host-diff", hostId, diffPeriod],
+    queryFn: () => hostsApi.getDiff(hostId, diffFrom).then(r => r.data),
   });
 
   return (
@@ -1210,18 +1365,21 @@ function PatchTab({ payload }: { payload: CollectionPayload }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function HostDetailPage() {
-  const { hostname } = useParams<{ hostname: string }>();
+  // Next.js param key is "hostname" (folder name) but the value is a UUID host_id
+  const { hostname: hostId } = useParams<{ hostname: string }>();
   const router = useRouter();
-  const decodedHostname = decodeURIComponent(hostname);
 
   const { data: payload, isLoading, refetch } = useQuery<CollectionPayload>({
-    queryKey: ["host-latest", decodedHostname],
-    queryFn: () => hostsApi.getLatest(decodedHostname).then(r => r.data),
+    queryKey: ["host-latest", hostId],
+    queryFn: () => hostsApi.getLatest(hostId).then(r => r.data),
   });
 
+  const hostnameFromPayload = payload?.host?.hostname;
+
   const { data: violationsData } = useQuery({
-    queryKey: ["host-violations", decodedHostname],
-    queryFn: () => violationsApi.list({ hostname: decodedHostname, resolved: false, size: 50 }).then(r => r.data),
+    queryKey: ["host-violations", hostId],
+    queryFn: () => violationsApi.list({ hostname: hostnameFromPayload, resolved: false, size: 50 }).then(r => r.data),
+    enabled: !!hostnameFromPayload,
   });
 
   const violations: Violation[] = violationsData?.items ?? [];
@@ -1236,7 +1394,7 @@ export default function HostDetailPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight font-mono">{decodedHostname}</h1>
+            <h1 className="text-2xl font-bold tracking-tight font-mono">{hostnameFromPayload ?? hostId}</h1>
             <p className="text-muted-foreground text-sm">
               {payload?.host?.domain && <span>{payload.host.domain} · </span>}
               {payload?.host?.os_version && <span>{payload.host.os_version}</span>}
@@ -1326,7 +1484,7 @@ export default function HostDetailPage() {
             <TabsContent value="system"><SystemTab payload={payload} /></TabsContent>
             <TabsContent value="registry"><RegistryTab payload={payload} /></TabsContent>
             <TabsContent value="patch"><PatchTab payload={payload} /></TabsContent>
-            <TabsContent value="diff"><DiffTab hostname={decodedHostname} /></TabsContent>
+            <TabsContent value="diff"><DiffTab hostId={hostId} /></TabsContent>
           </Tabs>
         </>
       )}

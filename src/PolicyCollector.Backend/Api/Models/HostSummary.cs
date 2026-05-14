@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 namespace PolicyCollector.Backend.Api.Models;
 
 public sealed record HostSummary(
+    [property: JsonPropertyName("id")]             Guid HostId,
     [property: JsonPropertyName("hostname")]       string Hostname,
     [property: JsonPropertyName("domain")]         string? Domain,
     [property: JsonPropertyName("os_version")]     string? OsVersion,

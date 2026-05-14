@@ -27,6 +27,7 @@ public sealed class CollectionJob
     private readonly ICollector<EventLogSettings> _eventLogSettingsCollector;
     private readonly ICollector<RemoteAccessResult> _remoteAccessCollector;
     private readonly ICollector<LapsResult> _lapsCollector;
+    private readonly ICollector<EndpointProtectionResult> _endpointProtectionCollector;
     private readonly ILogger<CollectionJob> _logger;
 
     public CollectionJob(
@@ -51,6 +52,7 @@ public sealed class CollectionJob
         ICollector<EventLogSettings> eventLogSettingsCollector,
         ICollector<RemoteAccessResult> remoteAccessCollector,
         ICollector<LapsResult> lapsCollector,
+        ICollector<EndpointProtectionResult> endpointProtectionCollector,
         ILogger<CollectionJob> logger)
     {
         _options = options;
@@ -74,6 +76,7 @@ public sealed class CollectionJob
         _eventLogSettingsCollector = eventLogSettingsCollector;
         _remoteAccessCollector = remoteAccessCollector;
         _lapsCollector = lapsCollector;
+        _endpointProtectionCollector = endpointProtectionCollector;
         _logger = logger;
     }
 
@@ -108,6 +111,7 @@ public sealed class CollectionJob
         EventLogSettings? eventLogSettings = null;
         RemoteAccessResult? remoteAccess = null;
         LapsResult? laps = null;
+        EndpointProtectionResult? endpointProtection = null;
 
         var hostTask = RunCollector(_hostCollector, timeout, cts.Token)
             .ContinueWith(t => hostInfo = t.Result?.Data, TaskContinuationOptions.OnlyOnRanToCompletion);
@@ -246,6 +250,13 @@ public sealed class CollectionJob
             tasks.Add(t);
         }
 
+        if (modules.EndpointProtection)
+        {
+            var t = RunCollector(_endpointProtectionCollector, timeout, cts.Token)
+                .ContinueWith(r => endpointProtection = r.Result?.Data, TaskContinuationOptions.OnlyOnRanToCompletion);
+            tasks.Add(t);
+        }
+
         try
         {
             await Task.WhenAll(tasks);
@@ -275,7 +286,8 @@ public sealed class CollectionJob
             hardwareSecurity,
             eventLogSettings,
             remoteAccess,
-            laps);
+            laps,
+            endpointProtection);
 
         _logger.LogInformation("Collection cycle completed in {Duration}ms",
             (DateTimeOffset.UtcNow - startTime).TotalMilliseconds);

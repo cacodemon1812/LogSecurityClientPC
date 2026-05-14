@@ -100,9 +100,9 @@ export default function HostsPage() {
                 )}
                 {items.map((h) => (
                   <tr
-                    key={h.hostname}
+                    key={h.id}
                     className="hover:bg-muted/30 cursor-pointer"
-                    onClick={() => router.push(`/hosts/${encodeURIComponent(h.hostname)}`)}
+                    onClick={() => router.push(`/hosts/${h.id}`)}
                   >
                     <td className="px-4 py-3 font-medium">{h.hostname}</td>
                     <td className="px-4 py-3 text-muted-foreground">{h.domain ?? "—"}</td>

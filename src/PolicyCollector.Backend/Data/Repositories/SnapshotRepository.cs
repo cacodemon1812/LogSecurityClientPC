@@ -92,6 +92,19 @@ public sealed class SnapshotRepository
             """, new { Hostname = hostname });
     }
 
+    public async Task<SnapshotRow?> GetLatestByHostIdAsync(Guid hostId, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenAsync(ct);
+        return await conn.QueryFirstOrDefaultAsync<SnapshotRow>("""
+            SELECT cs.id, cs.collection_id, cs.hostname, cs.collected_at, cs.payload AS PayloadJson
+            FROM collection_snapshots cs
+            INNER JOIN host_latest hl ON hl.hostname = cs.hostname
+            WHERE hl.host_id = @HostId
+            ORDER BY cs.collected_at DESC
+            LIMIT 1
+            """, new { HostId = hostId });
+    }
+
     public async Task<SnapshotRow?> GetNearestAsync(
         string hostname, DateTimeOffset t, CancellationToken ct)
     {
@@ -105,6 +118,20 @@ public sealed class SnapshotRepository
             """, new { Hostname = hostname, Time = t });
     }
 
+    public async Task<SnapshotRow?> GetNearestByHostIdAsync(
+        Guid hostId, DateTimeOffset t, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenAsync(ct);
+        return await conn.QueryFirstOrDefaultAsync<SnapshotRow>("""
+            SELECT cs.id, cs.collection_id, cs.hostname, cs.collected_at, cs.payload AS PayloadJson
+            FROM collection_snapshots cs
+            INNER JOIN host_latest hl ON hl.hostname = cs.hostname
+            WHERE hl.host_id = @HostId AND cs.collected_at <= @Time
+            ORDER BY cs.collected_at DESC
+            LIMIT 1
+            """, new { HostId = hostId, Time = t });
+    }
+
     public async Task<SnapshotRow?> GetPreviousAsync(
         string hostname, Guid currentSnapshotId, CancellationToken ct)
     {
@@ -116,5 +143,19 @@ public sealed class SnapshotRepository
             ORDER BY collected_at DESC
             LIMIT 1
             """, new { Hostname = hostname, CurrentId = currentSnapshotId });
+    }
+
+    public async Task<SnapshotRow?> GetPreviousByHostIdAsync(
+        Guid hostId, Guid currentSnapshotId, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenAsync(ct);
+        return await conn.QueryFirstOrDefaultAsync<SnapshotRow>("""
+            SELECT cs.id, cs.collection_id, cs.hostname, cs.collected_at, cs.payload AS PayloadJson
+            FROM collection_snapshots cs
+            INNER JOIN host_latest hl ON hl.hostname = cs.hostname
+            WHERE hl.host_id = @HostId AND cs.id != @CurrentId
+            ORDER BY cs.collected_at DESC
+            LIMIT 1
+            """, new { HostId = hostId, CurrentId = currentSnapshotId });
     }
 }

@@ -6,6 +6,7 @@ export interface PaginatedResponse<T> {
 }
 
 export interface HostSummary {
+  id: string;
   hostname: string;
   domain: string | null;
   osVersion: string | null;

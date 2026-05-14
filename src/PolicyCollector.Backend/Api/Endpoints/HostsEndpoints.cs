@@ -14,7 +14,7 @@ public static class HostsEndpoints
              .Produces<PaginatedResponse<HostSummary>>(200)
              .WithName("GetHosts");
 
-        group.MapGet("/hosts/{hostname}/latest", GetLatest)
+        group.MapGet("/hosts/{hostId:guid}/latest", GetLatest)
              .Produces<CollectionPayload>(200)
              .Produces(404)
              .WithName("GetLatestSnapshot");
@@ -53,7 +53,7 @@ public static class HostsEndpoints
             var violationCount = await violations.CountOpenAsync(h.Hostname, ct);
 
             summaries.Add(new HostSummary(
-                h.Hostname, h.Domain, h.OsVersion, h.AgentVersion,
+                h.HostId, h.Hostname, h.Domain, h.OsVersion, h.AgentVersion,
                 h.LastSeen, hostStatus, violationCount));
         }
 
@@ -61,11 +61,11 @@ public static class HostsEndpoints
     }
 
     private static async Task<IResult> GetLatest(
-        string hostname,
+        Guid hostId,
         SnapshotRepository snapshots,
         CancellationToken ct)
     {
-        var snapshot = await snapshots.GetLatestAsync(hostname, ct);
+        var snapshot = await snapshots.GetLatestByHostIdAsync(hostId, ct);
         if (snapshot is null) return Results.NotFound();
 
         var payload = JsonSerializer.Deserialize<CollectionPayload>(

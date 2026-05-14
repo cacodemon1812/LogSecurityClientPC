@@ -76,6 +76,9 @@ public sealed class CollectionPayload
     [JsonPropertyName("laps")]
     public LapsResult? Laps { get; init; }
 
+    [JsonPropertyName("endpoint_protection")]
+    public EndpointProtectionResult? EndpointProtection { get; init; }
+
     private static string GetAgentVersion() =>
         typeof(CollectionPayload).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 }

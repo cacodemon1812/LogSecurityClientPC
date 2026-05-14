@@ -4,9 +4,11 @@ namespace PolicyCollector.Agent.Models;
 
 public sealed class FirewallResult
 {
-    [JsonPropertyName("profiles")] public Dictionary<string, FirewallProfile>? Profiles { get; init; }
-    [JsonPropertyName("rules_summary")] public FirewallRulesSummary? RulesSummary { get; init; }
-    [JsonPropertyName("rules")] public List<FirewallRule>? Rules { get; init; }
+    [JsonPropertyName("profiles")]        public Dictionary<string, FirewallProfile>? Profiles      { get; init; }
+    [JsonPropertyName("rules_summary")]   public FirewallRulesSummary?                RulesSummary  { get; init; }
+    [JsonPropertyName("rules")]           public List<FirewallRule>?                  Rules         { get; init; }
+    [JsonPropertyName("listening_ports")] public List<ListeningPort>?                ListeningPorts { get; init; }
+    [JsonPropertyName("risky_ports")]     public List<RiskyPort>?                    RiskyPorts    { get; init; }
 }
 
 public sealed class FirewallProfile
@@ -22,6 +24,26 @@ public sealed class FirewallRulesSummary
     [JsonPropertyName("enabled")] public int Enabled { get; init; }
     [JsonPropertyName("inbound")] public int Inbound { get; init; }
     [JsonPropertyName("outbound")] public int Outbound { get; init; }
+}
+
+public sealed class ListeningPort
+{
+    [JsonPropertyName("protocol")]     public string? Protocol    { get; init; }
+    [JsonPropertyName("address")]      public string? Address     { get; init; }
+    [JsonPropertyName("port")]         public int     Port        { get; init; }
+    [JsonPropertyName("pid")]          public int?    Pid         { get; init; }
+    [JsonPropertyName("process_name")] public string? ProcessName { get; init; }
+}
+
+public sealed class RiskyPort
+{
+    [JsonPropertyName("port")]                  public int     Port                 { get; init; }
+    [JsonPropertyName("protocol")]              public string? Protocol             { get; init; }
+    [JsonPropertyName("risk_level")]            public string  RiskLevel            { get; init; } = "medium";
+    [JsonPropertyName("description")]           public string? Description          { get; init; }
+    [JsonPropertyName("is_listening")]          public bool    IsListening          { get; init; }
+    [JsonPropertyName("has_inbound_allow_rule")]public bool    HasInboundAllowRule  { get; init; }
+    [JsonPropertyName("process_name")]          public string? ProcessName          { get; init; }
 }
 
 public sealed class FirewallRule
@@ -106,4 +128,35 @@ public sealed class StartupEntry
     [JsonPropertyName("command")] public string? Command { get; init; }
     [JsonPropertyName("location")] public string? Location { get; init; }
     [JsonPropertyName("enabled")] public bool Enabled { get; init; }
+}
+
+public sealed class EndpointProtectionResult
+{
+    [JsonPropertyName("antivirus_products")] public List<SecurityProduct> AntivirusProducts { get; init; } = [];
+    [JsonPropertyName("firewall_products")]  public List<SecurityProduct> FirewallProducts  { get; init; } = [];
+    [JsonPropertyName("kaspersky_detected")] public bool KasperskyDetected { get; init; }
+    [JsonPropertyName("kaspersky")]          public KasperskyDetail? Kaspersky { get; init; }
+    // Populated when Kaspersky is NOT the registered firewall — signals ops team to verify Windows Firewall manually
+    [JsonPropertyName("firewall_note")]      public string? FirewallNote { get; init; }
+}
+
+public sealed class SecurityProduct
+{
+    [JsonPropertyName("name")]        public string? Name { get; init; }
+    [JsonPropertyName("enabled")]     public bool Enabled { get; init; }
+    [JsonPropertyName("up_to_date")]  public bool UpToDate { get; init; }
+    // Raw hex of productState from SecurityCenter2 — useful for debugging edge cases
+    [JsonPropertyName("state_hex")]   public string? StateHex { get; init; }
+    [JsonPropertyName("timestamp")]   public string? Timestamp { get; init; }
+}
+
+public sealed class KasperskyDetail
+{
+    [JsonPropertyName("product_name")]              public string? ProductName { get; init; }
+    [JsonPropertyName("version")]                   public string? Version { get; init; }
+    [JsonPropertyName("install_path")]              public string? InstallPath { get; init; }
+    [JsonPropertyName("av_enabled")]                public bool AvEnabled { get; init; }
+    [JsonPropertyName("av_up_to_date")]             public bool AvUpToDate { get; init; }
+    [JsonPropertyName("firewall_registered")]       public bool FirewallRegistered { get; init; }
+    [JsonPropertyName("firewall_enabled")]          public bool FirewallEnabled { get; init; }
 }

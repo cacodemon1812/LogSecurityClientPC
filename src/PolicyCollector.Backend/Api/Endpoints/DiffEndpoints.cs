@@ -8,14 +8,14 @@ public static class DiffEndpoints
 {
     public static void MapDiffEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/v1/hosts/{hostname}/diff", GetDiff)
+        app.MapGet("/api/v1/hosts/{hostId:guid}/diff", GetDiff)
            .Produces<DiffResponse>(200)
            .Produces(404)
            .WithName("GetDiff");
     }
 
     private static async Task<IResult> GetDiff(
-        string hostname,
+        Guid hostId,
         [FromQuery] DateTimeOffset? from,
         [FromQuery] DateTimeOffset? to,
         SnapshotRepository snapshots,
@@ -23,14 +23,16 @@ public static class DiffEndpoints
         CancellationToken ct)
     {
         var toSnapshot = to.HasValue
-            ? await snapshots.GetNearestAsync(hostname, to.Value, ct)
-            : await snapshots.GetLatestAsync(hostname, ct);
+            ? await snapshots.GetNearestByHostIdAsync(hostId, to.Value, ct)
+            : await snapshots.GetLatestByHostIdAsync(hostId, ct);
 
         if (toSnapshot is null) return Results.NotFound();
 
+        var hostname = toSnapshot.Hostname; // hostname used internally for config_changes lookup
+
         var fromSnapshot = from.HasValue
-            ? await snapshots.GetNearestAsync(hostname, from.Value, ct)
-            : await snapshots.GetPreviousAsync(hostname, toSnapshot.Id, ct);
+            ? await snapshots.GetNearestByHostIdAsync(hostId, from.Value, ct)
+            : await snapshots.GetPreviousByHostIdAsync(hostId, toSnapshot.Id, ct);
 
         if (fromSnapshot is null)
             return Results.Ok(new DiffResponse(hostname,

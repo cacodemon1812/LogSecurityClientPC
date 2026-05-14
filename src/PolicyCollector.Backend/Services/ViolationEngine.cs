@@ -36,8 +36,9 @@ public sealed class ViolationEngine
                     "uac.disabled"         => CheckUacDisabled(payload, rule),
                     "bitlocker.os_volume"  => CheckBitLockerOsVolume(payload, rule),
                     "tls.weak_protocol"    => CheckTlsWeakProtocol(payload, rule),
-                    "rdp.nla_disabled"     => CheckRdpNla(payload, rule),
-                    _                      => null
+                    "rdp.nla_disabled"          => CheckRdpNla(payload, rule),
+                    "network.risky_port_exposed" => CheckRiskyPortExposed(payload, rule),
+                    _                            => null
                 };
 
                 if (violation is not null)
@@ -190,6 +191,26 @@ public sealed class ViolationEngine
             "RDP is enabled without Network Level Authentication (NLA)",
             "NlaRequired = true",
             "NlaRequired = false");
+    }
+
+    private static ViolationEntry? CheckRiskyPortExposed(CollectionPayload payload, PolicyRule rule)
+    {
+        var riskyPorts = payload.Firewall?.RiskyPorts;
+        if (riskyPorts is null || riskyPorts.Count == 0) return null;
+
+        // Flag ports that are both listening AND have an inbound Allow rule — truly exposed to network
+        var exposed = riskyPorts
+            .Where(p => p.IsListening && p.HasInboundAllowRule)
+            .OrderByDescending(p => p.RiskLevel == "critical" ? 2 : p.RiskLevel == "high" ? 1 : 0)
+            .ToList();
+
+        if (exposed.Count == 0) return null;
+
+        var portList = string.Join(", ", exposed.Select(p => $"{p.Port}/{p.Protocol} ({p.Description})"));
+        return Violation(rule,
+            $"High-risk port(s) exposed via inbound firewall Allow rule: {portList}",
+            "No high-risk ports exposed",
+            $"{exposed.Count} port(s): {string.Join(", ", exposed.Select(p => p.Port))}");
     }
 
     private static ViolationEntry Violation(PolicyRule rule, string message, string expected, string actual) =>

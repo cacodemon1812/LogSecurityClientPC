@@ -47,10 +47,10 @@ export const statsApi = {
 export const hostsApi = {
   list: (params?: { domain?: string; status?: string; page?: number; size?: number; sort?: string; order?: string }) =>
     api.get("/api/v1/hosts", { params }),
-  getLatest: (hostname: string) =>
-    api.get(`/api/v1/hosts/${encodeURIComponent(hostname)}/latest`),
-  getDiff: (hostname: string, from?: string, to?: string) =>
-    api.get(`/api/v1/hosts/${encodeURIComponent(hostname)}/diff`, { params: { from, to } }),
+  getLatest: (hostId: string) =>
+    api.get(`/api/v1/hosts/${hostId}/latest`),
+  getDiff: (hostId: string, from?: string, to?: string) =>
+    api.get(`/api/v1/hosts/${hostId}/diff`, { params: { from, to } }),
 };
 
 // ── Violations ────────────────────────────────────────────────────────────────

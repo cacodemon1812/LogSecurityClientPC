@@ -37,7 +37,7 @@ public sealed class HardwareSecurityCollector : ICollector<HardwareSecurity>
 
             var tpmTask = _wmi.QueryAsync(
                 "Win32_Tpm",
-                properties: ["IsPresent", "IsEnabled_InitialValue", "IsActivated_InitialValue", "SpecVersion"],
+                properties: ["IsEnabled_InitialValue", "IsActivated_InitialValue", "SpecVersion"],
                 namespacePath: @"root\cimv2\Security\MicrosoftTpm",
                 ct: ct);
 
@@ -53,7 +53,7 @@ public sealed class HardwareSecurityCollector : ICollector<HardwareSecurity>
             var tpmRow = tpmTask.Result.FirstOrDefault();
             if (tpmRow is not null)
             {
-                tpmPresent   = tpmRow.TryGetValue("IsPresent", out var p)            && p is true;
+                tpmPresent   = true; // Win32_Tpm only returns rows when TPM hardware is present
                 tpmEnabled   = tpmRow.TryGetValue("IsEnabled_InitialValue", out var e) && e is true;
                 tpmActivated = tpmRow.TryGetValue("IsActivated_InitialValue", out var a) && a is true;
                 tpmVersion   = tpmRow.TryGetValue("SpecVersion", out var v) ? v?.ToString() : null;

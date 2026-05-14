@@ -26,7 +26,7 @@ public sealed class LocalAccountCollector : ICollector<LocalAccountsResult>
             var accountsTask = _wmi.QueryAsync(
                 "Win32_UserAccount",
                 condition: "LocalAccount=True",
-                properties: ["Name", "SID", "Disabled", "PasswordExpires", "LastLogon",
+                properties: ["Name", "SID", "Disabled", "PasswordExpires",
                              "Description", "AccountType"],
                 ct: ct);
 
@@ -43,7 +43,6 @@ public sealed class LocalAccountCollector : ICollector<LocalAccountsResult>
                 Sid             = r.TryGetValue("SID", out var sid)    ? sid?.ToString() : null,
                 Enabled         = r.TryGetValue("Disabled", out var d) && d is false,
                 PasswordExpires = r.TryGetValue("PasswordExpires", out var pe) && pe is true,
-                LastLogon       = r.TryGetValue("LastLogon", out var ll)   ? ll?.ToString() : null,
                 Description     = r.TryGetValue("Description", out var desc) ? desc?.ToString() : null,
                 IsBuiltinAdmin  = r.TryGetValue("AccountType", out var at)
                                   && Convert.ToUInt32(at ?? 0) == 512

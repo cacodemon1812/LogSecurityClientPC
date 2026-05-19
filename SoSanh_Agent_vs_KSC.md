@@ -245,6 +245,10 @@ Diễn giải:
 
 Mục này giúp tránh kỳ vọng sai khi thiết kế hệ thống giám sát.
 
+Ghi chú phiên bản:
+
+- Các nhận định trong mục này áp dụng theo hướng triển khai với KSC/KAS phiên bản 12.8 đang sử dụng.
+
 ### 11.1. Dữ liệu thường không thu thập được (hoặc không đủ sâu) từ KAS/KSC
 
 Các dữ liệu dưới đây nên lấy từ Agent local vì KAS thường không có, hoặc có nhưng không đủ chi tiết để điều tra kỹ thuật:
@@ -308,4 +312,14 @@ Nguyên tắc xử lý khi lệch dữ liệu:
 ## Ghi chú kỹ thuật
 
 - Đánh giá này dựa trên phạm vi collector hiện có và mô hình dữ liệu KSC/KAS phổ biến.
-- Trước khi chốt backlog, cần xác nhận phiên bản KSC đang dùng và khả năng API thực tế trong môi trường của công ty.
+- Phiên bản KSC/KAS đang dùng: 12.8.
+- Với KSC/KAS 12.8, nên xác nhận sớm 5 điểm trước khi chốt backlog tích hợp:
+  - Danh sách API/endpoint thực sự được mở trong môi trường hiện tại.
+  - Cơ chế xác thực và phân quyền tài khoản tích hợp (service account, scope quyền đọc).
+  - Giới hạn tốc độ truy vấn và chiến lược phân trang (pagination) cho dữ liệu fleet lớn.
+  - Trường thời gian chuẩn để làm incremental sync (created/updated/event time) nhằm tránh trùng hoặc mất bản ghi.
+  - Khả năng truy xuất lịch sử task, event, quarantine và license theo khoảng thời gian.
+- Khuyến nghị vận hành với 12.8:
+  - Đồng bộ theo lô nhỏ và có checkpoint watermark.
+  - Thiết kế cơ chế retry có backoff để tránh quá tải server quản trị.
+  - Bắt buộc lưu audit log cho tiến trình đồng bộ để phục vụ truy vết sự cố tích hợp.

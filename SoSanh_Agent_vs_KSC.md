@@ -1,176 +1,249 @@
-# So sanh Agent thu thap hien tai vs Kaspersky Security Center (KSC/KAS)
+# So sánh Agent thu thập hiện tại và Kaspersky Security Center (KSC/KAS)
 
-Ngay cap nhat: 2026-05-19
+Ngày cập nhật: 2026-05-19
 
-## 1) Muc tieu tai lieu
+## 1) Mục tiêu tài liệu
 
-Tai lieu nay giup quyet dinh nen:
-- Phat trien them agent thu thap local tren endpoint
-- Khai thac du lieu tu KSC/KAS master server
-- Hoac ket hop ca hai
+Tài liệu này giúp bạn quyết định chiến lược giám sát và bảo đảm an ninh mạng cho máy người dùng trong công ty theo 3 hướng:
 
-## 2) Tom tat nhanh
+- Phát triển thêm Agent thu thập tại endpoint.
+- Khai thác sâu dữ liệu từ KSC/KAS master server.
+- Kết hợp hai nguồn (Hybrid) để có độ phủ cao nhất.
 
-Ket luan de xuat: chon mo hinh Hybrid (2 nguon du lieu).
+## 2) Kết luận điều hành (Executive Summary)
 
-- Agent local manh o do sau cau hinh he dieu hanh, hardening, persistence, network exposure.
-- KSC manh o quan tri tap trung, policy assignment/compliance, task orchestration, su kien bao mat toan he thong.
-- Neu chi dung 1 ben se tao diem mu:
-  - Chi Agent: thieu goc nhin quan tri tap trung va policy tu KSC.
-  - Chi KSC: thieu nhieu chi tiet hardening thuc te tren OS ma endpoint collector dang co.
+Khuyến nghị chính: triển khai mô hình Hybrid, trong đó:
 
-## 3) Du lieu Agent hien tai dang thu duoc
+- Agent local đóng vai trò "ground truth" tại máy (cấu hình thực tế, độ sâu kỹ thuật cao).
+- KSC/KAS đóng vai trò "control plane" tập trung (quản trị, chính sách, tác vụ, vòng đời sự cố).
 
-Theo InfoKiemTra.md, Agent da co 21 collector, gom cac nhom lon:
+Vì sao không nên chỉ chọn một bên:
 
-- Identity/Domain: GPO, ActiveDirectory, LAPS, LocalAccounts
-- OS Security baseline: SecurityPolicy, RegistryAudit, Defender, BitLocker, Patch
-- Exposure/Persistence: Firewall + ListeningPorts + RiskyPorts, Services, ScheduledTasks, StartupEntries, SharedFolders, RemoteAccess, WiFi
-- Endpoint AV overview: EndpointProtection (SecurityCenter2 + registry Kaspersky local)
+- Chỉ Agent: thiếu góc nhìn tập trung theo nhóm/phòng ban, thiếu policy governance và vòng đời xử lý sự cố tập trung.
+- Chỉ KSC: thiếu nhiều tín hiệu hardening cấp OS và dấu hiệu persistence/attack surface mà Agent hiện có đang thu rất tốt.
 
-Gia tri noi bat:
+Kỳ vọng khi đi Hybrid:
 
-- Do sau endpoint rat cao (nhieu key registry va command low-level)
-- Co nhieu rule co the map truc tiep sang violation (critical/high)
-- Co kha nang phat hien lech cau hinh thuc te tai may (ground truth)
+- Giảm điểm mù kỹ thuật ở endpoint.
+- Tăng năng lực quản trị tập trung và audit compliance.
+- Nâng chất lượng cảnh báo: cảnh báo dựa trên tương quan hai nguồn thay vì chỉ một chiều.
 
-Gioi han:
+## 3) Đánh giá chi tiết năng lực Agent hiện tại
 
-- Chua lay du lieu quan tri tap trung tu KSC master
-- Chua biet host dang thuoc group/policy nao trong KSC
-- Chua co lich su task, event, quarantine, license tu KSC
+Theo phạm vi hiện có, Agent đang thu 21 collector và có giá trị cao ở các lớp sau:
 
-## 4) Du lieu KSC/KAS thuong co (master server)
+### 3.1. Lớp kiểm soát cấu hình bảo mật endpoint
 
-Thong thuong KSC cho phep (qua console/API) cac nhom:
+- SecurityPolicy (secedit, auditpol, UAC/TLS/RDP)
+- RegistryAudit (WDigest, SMBv1, NTLM, Winlogon persistence, PowerShell logging)
+- Defender, BitLocker, Patch, LAPS
 
-- Device inventory tap trung: host managed/unmanaged, last seen, admin group
-- Policy management: policy dang ap dung, inheritance, lock, profile
-- Task orchestration: deploy/update/scan task status, scheduler, fail/success history
-- Security events: malware detection, action taken, quarantine/rollback thong ke
-- Operational: update source, distribution point, module health, license state
-- Reporting toan fleet: trend, top risk hosts, compliance theo group
+Ý nghĩa an ninh:
 
-Gia tri noi bat:
+- Phát hiện lệch baseline hardening rất sát thực tế máy.
+- Có thể tạo rule vi phạm mức critical/high từ bằng chứng kỹ thuật rõ ràng.
 
-- Goc nhin quan tri tap trung va kha nang dieu phoi
-- Dung de audit compliance theo don vi/nhom
-- Tot cho SOC/ops dashboard va workflow xu ly su co
+### 3.2. Lớp phơi bày bề mặt tấn công (Exposure)
 
-Gioi han:
+- Firewall profiles/rules, listening ports, risky ports.
+- RemoteAccess (WinRM/SSH/Telnet), SharedFolders, WiFi profile risk.
 
-- Khong phai luc nao cung co do sau OS hardening nhu collector local
-- Co the co do tre dong bo hoac mismatch voi trang thai thuc te tai endpoint
+Ý nghĩa an ninh:
 
-## 5) Ma tran so sanh truc tiep
+- Dễ phát hiện lỗ hổng cấu hình dẫn đến lateral movement.
+- Dễ ưu tiên khắc phục theo mức độ rủi ro thực tế.
 
-| Tieu chi | Agent local hien tai | KSC/KAS master |
+### 3.3. Lớp kiểm tra persistence và vận hành endpoint
+
+- Services, ScheduledTasks, StartupEntries, LocalAccounts, App inventory.
+
+Ý nghĩa an ninh:
+
+- Tốt cho use case "săn tìm cấu hình bất thường" và kiểm soát thay đổi trái phép.
+
+### 3.4. Điểm còn thiếu của Agent (nếu muốn thay vai trò KSC)
+
+- Chưa có trạng thái quản trị tập trung theo cấu trúc tổ chức (group/path) trong KSC.
+- Chưa có vòng đời tác vụ Kaspersky (deploy/update/scan) ở cấp điều phối tập trung.
+- Chưa có dòng sự kiện tập trung toàn fleet (detection/action/quarantine/timeline).
+- Chưa có lớp license/compliance vận hành ở cấp trung tâm.
+
+## 4) Đánh giá chi tiết năng lực KSC/KAS master server
+
+KSC/KAS thường mạnh ở lớp quản trị và vận hành tập trung:
+
+- Inventory toàn hệ thống, trạng thái managed/unmanaged, last seen.
+- Policy assignment, inheritance, lock, profile theo OU/group.
+- Task orchestration: triển khai, cập nhật, quét, tỷ lệ thành công/thất bại.
+- Security event và quarantine ở quy mô toàn fleet.
+- Báo cáo xu hướng, audit theo đơn vị, theo thời gian.
+
+Ý nghĩa an ninh:
+
+- Hữu ích cho SOC, quản trị vận hành, kiểm tra tuân thủ, báo cáo lãnh đạo.
+- Tăng năng lực điều phối khắc phục đồng loạt.
+
+Giới hạn khi chỉ dựa vào KSC:
+
+- Một số tín hiệu hardening cấp sâu có thể không đầy đủ bằng collector local.
+- Có thể có độ trễ đồng bộ giữa thực trạng máy và trạng thái trên server.
+
+## 5) So sánh trực tiếp theo mục tiêu giám sát doanh nghiệp
+
+| Tiêu chí | Agent local hiện tại | KSC/KAS master |
 |---|---|---|
-| Do sau cau hinh OS | Rat cao | Trung binh |
-| Kiem tra hardening (registry, auditpol, secedit) | Rat tot | Han che/khong day du |
-| Trang thai AV/FW Kaspersky | Co (local) | Co (tap trung, quan tri) |
-| Policy assignment va inheritance | Khong | Rat tot |
-| Task deployment/scan/update lich su | Khong | Rat tot |
-| Security event tap trung toan fleet | Han che | Rat tot |
-| Quarantine/incident lifecycle | Khong/han che | Rat tot |
-| Fleet-level compliance reporting | Han che | Rat tot |
-| Do tin cay trang thai thuc te tren may | Rat cao | Cao nhung co do tre |
-| Do phuc tap tich hop ban dau | Trung binh | Trung binh-cao (API, auth, mapping) |
+| Độ sâu cấu hình OS | Rất cao | Trung bình |
+| Hardening chi tiết (registry, auditpol, secedit) | Rất tốt | Hạn chế/không đầy đủ |
+| Trạng thái Kaspersky AV/FW | Có (local view) | Có (central view) |
+| Quản trị policy theo tổ chức | Không | Rất tốt |
+| Điều phối task trên toàn fleet | Không | Rất tốt |
+| Sự kiện bảo mật tập trung | Hạn chế | Rất tốt |
+| Vòng đời quarantine/incident | Hạn chế | Rất tốt |
+| Báo cáo compliance cho lãnh đạo | Hạn chế | Rất tốt |
+| Độ tin cậy trạng thái thực tế tại máy | Rất cao | Cao nhưng có độ trễ |
+| Độ phức tạp tích hợp ban đầu | Trung bình | Trung bình đến cao |
 
-## 6) Khoang trong hien tai can bo sung
+## 6) Nên phát triển công cụ hay sử dụng KAS như thế nào?
 
-Neu muc tieu la thay the phan lon bao cao KSC, he thong hien tai con thieu:
+### 6.1. Nếu ưu tiên giảm rủi ro kỹ thuật tại endpoint
 
-- KSC host identity mapping (host id/group/path)
-- Policy snapshot va policy compliance theo host
-- Task result timeline (scan/update/deploy)
-- Security event stream (detection/action/quarantine)
-- License va operational health
+Ưu tiên đầu tư Agent khi mục tiêu chính là:
 
-## 7) Nen phat trien them Agent hay khai thac KAS?
+- Phát hiện cấu hình nguy hiểm theo bằng chứng kỹ thuật cụ thể.
+- Áp chuẩn hardening nội bộ/CIS xuống từng máy.
+- Kiểm soát persistence, service/task/startup bất thường.
 
-Khuyen nghi theo muc tieu:
+Kết luận cho trường hợp này:
 
-### Truong hop A: Uu tien hardening va soat cau hinh may
+- Nên tiếp tục phát triển Agent collector và rule engine.
+- Tuy nhiên vẫn cần dữ liệu KSC để không thiếu lớp quản trị tập trung.
 
-Nen dau tu them Agent neu ban can:
-- Them collector cho deep OS artifact
-- Rule custom theo tieu chuan noi bo (CIS, policy noi bo)
-- Phat hien persistence va misconfig sat voi may thuc te
+### 6.2. Nếu ưu tiên vận hành SOC và quản trị tập trung
 
-### Truong hop B: Uu tien quan tri tap trung va van hanh SOC
+Ưu tiên khai thác KSC/KAS khi mục tiêu chính là:
 
-Nen khai thac KSC/KAS neu ban can:
-- Bao cao toan fleet theo group
-- Theo doi policy drift tap trung
-- Quan ly task, incident, quarantine lifecycle
+- Theo dõi fleet-level security posture theo group/phòng ban.
+- Đo policy compliance tập trung và drift theo thời gian.
+- Quản lý task/quarantine/incident lifecycle đồng bộ.
 
-### Truong hop C: Muc tieu day du nhat (khuyen nghi)
+Kết luận cho trường hợp này:
 
-Hybrid:
-- Agent = Ground truth endpoint + hardening depth
-- KSC = Governance, operations, fleet security events
-- Backend = Correlation engine hop nhat 2 nguon
+- Cần tích hợp KSC sớm để có dữ liệu điều hành.
+- Nhưng không nên bỏ Agent vì sẽ mất chiều sâu endpoint.
 
-## 8) De xuat lo trinh trien khai thuc te (4 giai doan)
+### 6.3. Mô hình khuyến nghị cho doanh nghiệp vừa và lớn
 
-### Giai doan 1 (ngan han, 1-2 sprint)
+Mô hình Hybrid 3 lớp:
 
-- Giu nguyen collector hien tai
-- Chuan hoa host identity trong payload (hostname/FQDN/domain + endpoint id)
-- Bo sung cac truong can thiet de map voi KSC host
+- Lớp 1 (Endpoint truth): Agent thu thập local.
+- Lớp 2 (Central governance): KSC/KAS đồng bộ về backend.
+- Lớp 3 (Correlation): máy chấm điểm và cảnh báo hợp nhất hai nguồn.
 
-Deliverable:
-- Bang map host identity 1-1 giua Agent va KSC
+Lợi ích thực tế:
 
-### Giai doan 2 (2-3 sprint)
+- Cảnh báo chính xác hơn (giảm false positive khi có đối chiếu hai chiều).
+- Ưu tiên xử lý tốt hơn (host nào vừa lệch hardening vừa lệch policy trung tâm).
+- Dễ chứng minh tuân thủ trong audit nội bộ/đối tác.
 
-- Xay KSC connector o backend (worker dong bo dinh ky)
-- Nap du lieu: inventory, policy assignment, task status, security events co ban
+## 7) Khung giám sát an ninh mạng đề xuất cho máy người dùng công ty
 
-Deliverable:
-- Bang du lieu KSC_* trong backend + dong bo incremental
+### 7.1. Mục tiêu kiểm soát
 
-### Giai doan 3 (2 sprint)
+- Phát hiện sớm cấu hình yếu và bề mặt tấn công mở.
+- Đảm bảo endpoint bám chính sách an ninh thống nhất.
+- Theo dõi đầy đủ vòng đời cảnh báo đến khi đóng sự cố.
 
-- Xay correlation rules:
-  - KSC expected policy vs Agent actual state
-  - KSC task expected vs endpoint evidence
-- Tao violation moi theo mismatch 2 nguon
+### 7.2. Nhóm chỉ số vận hành bắt buộc (KPI/KRI)
 
-Deliverable:
-- Compliance score hop nhat theo host
+- Tỷ lệ máy đạt baseline hardening (% compliant).
+- Tỷ lệ máy lệch policy KSC theo nhóm/phòng ban.
+- Thời gian trung bình xử lý vi phạm critical (MTTR).
+- Tỷ lệ endpoint không gửi dữ liệu quá N giờ.
+- Tỷ lệ task KSC thất bại lặp lại.
 
-### Giai doan 4 (1-2 sprint)
+### 7.3. Bộ cảnh báo ưu tiên cao nên có ngay
 
-- Dashboard va report dieu hanh:
-  - Fleet risk heatmap
-  - Top host mismatch
-  - Policy drift by group
+- Cổng nguy hiểm đang listen và có inbound allow.
+- WDigest bật cleartext, SMBv1 bật, NTLM cấu hình yếu.
+- Tài khoản local admin bất thường hoặc tăng đột biến.
+- Máy "đã managed" trên KSC nhưng không khớp policy mong đợi.
+- Máy không cập nhật signature/patch vượt ngưỡng thời gian.
 
-Deliverable:
-- View quan tri va canh bao uu tien theo tac dong
+## 8) Lộ trình triển khai khuyến nghị (thực dụng)
 
-## 9) Quyet dinh de nghi
+### Giai đoạn 1: Chuẩn hóa dữ liệu và định danh (1-2 sprint)
 
-Neu ban dang phan van chi dau tu 1 ben, de xuat:
+- Chuẩn hóa định danh host: endpoint_id, hostname, FQDN, domain, serial (nếu có).
+- Tạo bảng ánh xạ host Agent <-> host KSC.
+- Chuẩn hóa severity và taxonomy rule/violation.
 
-1. Khong bo Agent hien tai vi dang tao gia tri hardening rat cao.
-2. Dau tu tiep theo vao KSC integration de bo sung governance gap.
-3. Dat muc tieu Hybrid la dich den chinh.
+Đầu ra:
 
-## 10) Checklist ra quyet dinh nhanh
+- Mapping 1-1 đáng tin cậy giữa hai nguồn.
 
-Tra loi 3 cau hoi sau:
+### Giai đoạn 2: Tích hợp KSC/KAS vào backend (2-3 sprint)
 
-1. Ban co can bao cao fleet-level cho lanh dao/SOC theo group va trend khong?
-2. Ban co can doi chieu policy trung tam voi cau hinh thuc te tren may khong?
-3. Ban co can su kien incident/quarantine/task lifecycle de van hanh hang ngay khong?
+- Xây worker đồng bộ định kỳ (incremental sync).
+- Nạp 4 nhóm dữ liệu trước: inventory, policy assignment, task status, security events.
+- Bổ sung retry, idempotency, watermark thời gian để chống trùng/mất dữ liệu.
 
-Neu >= 2 cau tra loi la Co: uu tien khai thac KSC ngay, song song giu va toi uu Agent.
+Đầu ra:
+
+- Bảng dữ liệu KSC chuẩn hóa, truy vấn được theo host/group/time.
+
+### Giai đoạn 3: Correlation và chấm điểm rủi ro (2 sprint)
+
+- Xây rules đối chiếu:
+  - Policy expected (KSC) vs Actual state (Agent).
+  - Task expected (KSC) vs Evidence endpoint (Agent).
+- Tạo điểm rủi ro hợp nhất theo host và theo nhóm.
+
+Đầu ra:
+
+- Danh sách host ưu tiên xử lý theo tác động thực tế.
+
+### Giai đoạn 4: Vận hành SOC và cải tiến liên tục (1-2 sprint)
+
+- Dashboard điều hành: heatmap rủi ro, top mismatch, trend compliance.
+- SOP xử lý sự cố theo mức độ (critical/high/medium).
+- Cơ chế "policy feedback": vi phạm lặp lại sẽ đẩy đề xuất sửa policy trung tâm.
+
+Đầu ra:
+
+- Quy trình giám sát và xử lý có thể vận hành ổn định hằng ngày.
+
+## 9) Khuyến nghị quyết định đầu tư
+
+Nếu chỉ được ưu tiên một hướng trong ngắn hạn, thứ tự khuyến nghị là:
+
+1. Giữ và nâng chất Agent hiện tại (vì đây là nguồn sự thật kỹ thuật tại máy).
+2. Song song triển khai tích hợp KSC dữ liệu cốt lõi (inventory + policy + task + event).
+3. Ưu tiên xây correlation sớm, không đợi hoàn thiện 100% dữ liệu mới bắt đầu.
+
+Lý do:
+
+- Mục tiêu "giám sát và đảm bảo an ninh mạng" cần cả hai: độ sâu kỹ thuật và năng lực quản trị tập trung.
+- Hybrid cho hiệu quả tốt nhất về giảm rủi ro thực tế và khả năng điều hành.
+
+## 10) Checklist ra quyết định nhanh cho ban lãnh đạo
+
+Trả lời 5 câu hỏi sau:
+
+1. Doanh nghiệp có cần báo cáo an ninh theo phòng ban/đơn vị và xu hướng theo tháng không?
+2. Có cần chứng minh máy tuân thủ chính sách chuẩn trong các kỳ audit không?
+3. Có cần theo dõi vòng đời task/quarantine/incident tập trung không?
+4. Có cần phát hiện sai lệch hardening sâu ở cấp OS không?
+5. Có cần ưu tiên xử lý theo mức độ rủi ro thực tế thay vì theo cảnh báo rời rạc không?
+
+Diễn giải:
+
+- Nếu từ 3 câu "Có" trở lên: bắt buộc đi theo Hybrid.
+- Nếu chủ yếu "Có" ở câu 4: ưu tiên đầu tư Agent trước, nhưng vẫn lên kế hoạch tích hợp KSC.
+- Nếu chủ yếu "Có" ở câu 1-2-3: ưu tiên tích hợp KSC trước, đồng thời giữ Agent mức tối thiểu.
 
 ---
 
-Ghi chu ky thuat:
-- Tai lieu nay danh gia theo pham vi du lieu hien co trong project va mo hinh thong tin KSC thong dung.
-- Can xac nhan them danh sach endpoint API/chuc nang KSC phien ban dang dung de chot backlog chinh xac.
+## Ghi chú kỹ thuật
+
+- Đánh giá này dựa trên phạm vi collector hiện có và mô hình dữ liệu KSC/KAS phổ biến.
+- Trước khi chốt backlog, cần xác nhận phiên bản KSC đang dùng và khả năng API thực tế trong môi trường của công ty.

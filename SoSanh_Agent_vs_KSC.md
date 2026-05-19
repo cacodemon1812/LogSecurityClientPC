@@ -241,6 +241,68 @@ Diễn giải:
 - Nếu chủ yếu "Có" ở câu 4: ưu tiên đầu tư Agent trước, nhưng vẫn lên kế hoạch tích hợp KSC.
 - Nếu chủ yếu "Có" ở câu 1-2-3: ưu tiên tích hợp KSC trước, đồng thời giữ Agent mức tối thiểu.
 
+## 11) Phạm vi dữ liệu: cái gì không lấy được từ KAS và cái gì nên lấy qua KAS
+
+Mục này giúp tránh kỳ vọng sai khi thiết kế hệ thống giám sát.
+
+### 11.1. Dữ liệu thường không thu thập được (hoặc không đủ sâu) từ KAS/KSC
+
+Các dữ liệu dưới đây nên lấy từ Agent local vì KAS thường không có, hoặc có nhưng không đủ chi tiết để điều tra kỹ thuật:
+
+- Chi tiết hardening mức registry/security option của Windows:
+  - WDigest `UseLogonCredential`, NTLM `LmCompatibilityLevel`, SMBv1 driver/start type.
+  - Winlogon `Shell/Userinit`, `LocalAccountTokenFilterPolicy`, `RunAsPPL`, các cờ LSA.
+- Kết quả `secedit` và `auditpol` theo subcategory (mức evidence để đối chiếu chính xác).
+- Mapping chi tiết firewall rule với cổng đang listen theo tiến trình tại thời điểm thu thập.
+- Danh sách startup persistence, scheduled task ngoài Microsoft, service binary path chi tiết.
+- Cấu hình WiFi profile (Open/WEP/WPA/TKIP/CCMP) và đánh giá rủi ro từng SSID.
+- Một số dấu hiệu cấu hình bất thường theo ngữ cảnh nội bộ (rule tùy biến) mà KAS không hiểu bối cảnh doanh nghiệp.
+
+Lý do:
+
+- Đây là lớp telemetry gần hệ điều hành, cần thu thập trực tiếp tại endpoint mới đảm bảo độ sâu và tính thời điểm.
+
+### 11.2. Dữ liệu chỉ có thể, hoặc nên lấy qua KAS/KSC
+
+Các dữ liệu dưới đây nên lấy từ KAS/KSC vì bản chất là dữ liệu quản trị tập trung:
+
+- Cây tổ chức quản trị endpoint:
+  - Nhóm quản trị, nhánh OU logic trong KSC, trạng thái managed/unmanaged toàn hệ thống.
+- Policy governance:
+  - Policy gán cho từng nhóm, inheritance, trạng thái khóa policy, profile đang áp dụng.
+- Vòng đời tác vụ tập trung:
+  - Deploy/update/scan task, lịch chạy, tỷ lệ thành công/thất bại, nguyên nhân lỗi theo task.
+- Sự kiện bảo mật tập trung và quarantine lifecycle:
+  - Detection, hành động xử lý, cách ly/khôi phục, trạng thái đóng mở sự cố.
+- Tình trạng license và sức khỏe vận hành nền tảng Kaspersky:
+  - Hạn license, phạm vi cấp phát, trạng thái cập nhật nguồn/repository/distribution point.
+- Báo cáo fleet-level cho quản trị và kiểm toán:
+  - Xu hướng rủi ro theo thời gian, top nhóm/đơn vị rủi ro, mức tuân thủ theo chính sách.
+
+Lý do:
+
+- Đây là dữ liệu do control plane quản lý; Agent tại máy không thể tái tạo đầy đủ bối cảnh điều phối trung tâm.
+
+### 11.3. Dữ liệu có ở cả hai bên nhưng vai trò khác nhau
+
+Một số trường có thể xuất hiện ở cả Agent và KAS, nhưng nên dùng theo nguyên tắc:
+
+- Trạng thái AV/FW:
+  - Agent: dùng để xác nhận thực trạng tức thời tại máy.
+  - KAS: dùng cho quản trị tập trung, kiểm tra mức phủ chính sách.
+- Trạng thái cập nhật/chữ ký:
+  - Agent: bằng chứng tại thời điểm thu thập.
+  - KAS: theo dõi xu hướng và xử lý hàng loạt.
+- Compliance:
+  - Agent: compliance kỹ thuật chi tiết.
+  - KAS: compliance điều hành theo nhóm/phòng ban.
+
+Nguyên tắc xử lý khi lệch dữ liệu:
+
+- Dùng Agent làm nguồn xác minh kỹ thuật cuối cùng tại host.
+- Dùng KAS làm nguồn sự thật cho bối cảnh quản trị tập trung.
+- Đưa cảnh báo "mismatch" thành loại cảnh báo riêng để SOC ưu tiên điều tra.
+
 ---
 
 ## Ghi chú kỹ thuật
